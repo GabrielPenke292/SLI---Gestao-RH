@@ -49,30 +49,59 @@ body {
 
 .form-floating {
     margin-bottom: 1.5rem;
+    position: relative;
 }
 
 .form-control {
     border: 2px solid #e9ecef;
     border-radius: 10px;
-    padding: 1rem 0.75rem 1rem 3rem;
+    padding: 1rem 0.75rem 1rem 0.75rem;
     font-size: 1rem;
     transition: all 0.3s ease;
+    height: calc(3.5rem + 2px);
+    padding-left: 2.5rem;
 }
 
 .form-control:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    border-color: #3e3946;
+    box-shadow: 0 0 0 0.2rem rgba(62, 57, 70, 0.25);
+}
+
+.form-control:focus ~ label,
+.form-control:not(:placeholder-shown) ~ label,
+.form-floating.focused label {
+    opacity: 0.65;
+    transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+    color: #3e3946;
+}
+
+.form-floating > label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    padding: 1rem 0.75rem 1rem 0.75rem;
+    pointer-events: none;
+    border: 1px solid transparent;
+    transform-origin: 0 0;
+    transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+    color: #6c757d;
+    padding-left: 2.5rem;
 }
 
 .input-group-text {
     background: transparent;
     border: none;
     position: absolute;
-    left: 1rem;
+    left: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
     z-index: 10;
     color: #6c757d;
+    pointer-events: none;
+    font-size: 0.9rem;
+    width: 1.5rem;
+    text-align: center;
 }
 
 .btn-login {

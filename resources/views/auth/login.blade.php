@@ -35,20 +35,19 @@
                     @csrf
                     
                     <div class="form-floating position-relative">
-                        
-                            <label for="email">E-mail</label>
-                            <input type="email" 
-                            class="form-control @error('email') is-invalid @enderror" 
-                            id="email" 
-                            name="email" 
-                            placeholder="seu@email.com"
-                            value="{{ old('email') }}"
-                            required 
-                            autocomplete="email" 
-                            autofocus>
-                            
-                        
-
+                        <input type="email" 
+                               class="form-control @error('email') is-invalid @enderror" 
+                               id="email" 
+                               name="email" 
+                               placeholder="seu@email.com"
+                               value="{{ old('email') }}"
+                               required 
+                               autocomplete="email" 
+                               autofocus>
+                        <label for="email">E-mail</label>
+                        <div class="input-group-text">
+                            <i class="fas fa-envelope"></i>
+                        </div>
                         @error('email')
                             <div class="invalid-feedback">
                                 {{ $message }}
@@ -57,7 +56,6 @@
                     </div>
                     
                     <div class="form-floating position-relative">
-                        <label for="password">Senha</label>
                         <input type="password" 
                                class="form-control @error('password') is-invalid @enderror" 
                                id="password" 
@@ -65,6 +63,10 @@
                                placeholder="Sua senha"
                                required 
                                autocomplete="current-password">
+                        <label for="password">Senha</label>
+                        <div class="input-group-text">
+                            <i class="fas fa-lock"></i>
+                        </div>
                         @error('password')
                             <div class="invalid-feedback">
                                 {{ $message }}
@@ -115,14 +117,27 @@
             btn.disabled = true;
         });
         
-        // Adicionar efeito de foco nos inputs
+        // Adicionar efeito de foco nos inputs e controlar labels
         document.querySelectorAll('.form-control').forEach(input => {
+            // Verificar se o input já tem valor (para manter o label no lugar correto)
+            if (input.value) {
+                input.parentElement.classList.add('focused');
+            }
+            
             input.addEventListener('focus', function() {
                 this.parentElement.classList.add('focused');
             });
             
             input.addEventListener('blur', function() {
                 if (!this.value) {
+                    this.parentElement.classList.remove('focused');
+                }
+            });
+            
+            input.addEventListener('input', function() {
+                if (this.value) {
+                    this.parentElement.classList.add('focused');
+                } else {
                     this.parentElement.classList.remove('focused');
                 }
             });
