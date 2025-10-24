@@ -7,9 +7,19 @@ use App\Http\Controllers\DashboardController;
 
 Route::get('/', [HomeController::class, 'index']);
 
-// Login routes
+// Login routes (públicas)
 Route::get('/login', [AuthController::class, 'index'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 
-// dashboard routes
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+// Rotas protegidas por autenticação
+Route::middleware(['auth'])->group(function () {
+    // Dashboard routes
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Logout route
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    
+    // Permission routes
+    Route::get('/permissions/check/{permissions}', [AuthController::class, 'hasAnyPermission'])->name('permissions.check');
+    Route::get('/permissions/check-all/{permissions}', [AuthController::class, 'hasAllPermissions'])->name('permissions.check.all');
+});
