@@ -41,4 +41,22 @@ $(document).ready(function() {
             }
         });
     });
+
+    // Evento de submit do formulário
+    $('#loginForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = $(this).serialize();
+        console.log(formData);
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                console.log(response);
+            },
+            error: function(xhr, status, error) {
+                console.log(xhr.responseText);
+            }
+        });
+    });
 });
