@@ -53,6 +53,11 @@ $(document).ready(function() {
             data: formData,
             success: function(response) {
                 console.log(response);
+                if (response.success) {
+                    window.location.href = response.redirect;
+                } else {
+                    alert(response.error);
+                }
             },
             error: function(xhr, status, error) {
                 console.log(xhr.responseText);
