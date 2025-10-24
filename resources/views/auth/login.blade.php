@@ -105,6 +105,7 @@
         </div>
     </div>
     
+    <script src="{{ asset('assets/js/jquery/jquery-3.7.1.min.js') }}"></script>
     <script src="{{ asset('assets/js/bootstrap/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('js/login/login.js') }}"></script>
 </body>
