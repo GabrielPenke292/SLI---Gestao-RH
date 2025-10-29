@@ -13,7 +13,7 @@
                     
                     <div class="row">
                         <div class="col-md-3 mb-3 p-3">
-                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                            <a href="{{ route('employees.board') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-users me-2"></i>Quadro de Funcionários
                             </a>
                         </div>
