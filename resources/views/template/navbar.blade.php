@@ -1,11 +1,11 @@
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
-        <a class="navbar-brand" href="#">   
+        <a class="navbar-brand" href="{{ route('dashboard') }}">   
             <i class="fas fa-users-cog me-2"></i>SLI
         </a>
         <div class="navbar-nav ms-auto">
             <div class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="{{ route('dashboard') }}" role="button" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                     <i class="fas fa-user me-1"></i>{{ session('user.name') }}
                 </a>
                 <ul class="dropdown-menu">
