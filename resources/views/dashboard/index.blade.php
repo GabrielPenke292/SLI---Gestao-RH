@@ -40,7 +40,7 @@
                         <div class="row">
                             @if(in_array('employee_view', $permissions))
                             <div class="col-md-3 mb-3 p-3">
-                                <a href="#" class="btn btn-outline-primary w-100 p-5">
+                                <a href="{{ route('employees.index') }}" class="btn btn-outline-primary w-100 p-5">
                                     <i class="fas fa-users me-2"></i>Funcionários
                                 </a>
                             </div>

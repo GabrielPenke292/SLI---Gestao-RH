@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeController;
 
 Route::get('/', [HomeController::class, 'index']);
 
@@ -22,4 +23,7 @@ Route::middleware(['auth'])->group(function () {
     // Permission routes
     Route::get('/permissions/check/{permissions}', [AuthController::class, 'hasAnyPermission'])->name('permissions.check');
     Route::get('/permissions/check-all/{permissions}', [AuthController::class, 'hasAllPermissions'])->name('permissions.check.all');
+
+    // Employee routes
+    Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
 });
