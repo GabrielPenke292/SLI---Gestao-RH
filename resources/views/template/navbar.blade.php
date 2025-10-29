@@ -6,7 +6,7 @@
         <div class="navbar-nav ms-auto">
             <div class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                    <i class="fas fa-user me-1"></i>{{ $user->user_name }}
+                    <i class="fas fa-user me-1"></i>{{ session('user.name') }}
                 </a>
                 <ul class="dropdown-menu">
                     <li><a class="dropdown-item" href="#"><i class="fas fa-user-cog me-2"></i>Perfil</a></li>
