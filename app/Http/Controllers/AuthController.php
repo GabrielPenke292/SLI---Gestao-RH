@@ -37,16 +37,16 @@ class AuthController extends Controller
             
             // Carregar permissões do usuário
             $permissions = $user->permissions()->active()->pluck('permission_name')->toArray();
-            
+            // cria a sessão do usuario
+            session(['user' => [
+                'id' => $user->users_id,
+                'name' => $user->user_name,
+                'email' => $user->user_email,
+                'permissions' => $permissions
+            ]]);
             return response()->json([
                 'success' => 'Login realizado com sucesso',
                 'redirect' => route('dashboard'),
-                'user' => [
-                    'id' => $user->users_id,
-                    'name' => $user->user_name,
-                    'email' => $user->user_email,
-                    'permissions' => $permissions
-                ]
             ], 200);
         }
 

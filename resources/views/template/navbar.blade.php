@@ -5,7 +5,7 @@
         </a>
         <div class="navbar-nav ms-auto">
             <div class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle" href="{{ route('dashboard') }}" role="button" data-bs-toggle="dropdown">
                     <i class="fas fa-user me-1"></i>{{ session('user.name') }}
                 </a>
                 <ul class="dropdown-menu">
