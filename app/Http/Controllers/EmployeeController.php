@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Models\Worker;
 
 class EmployeeController extends Controller
 {
@@ -25,83 +26,86 @@ class EmployeeController extends Controller
      */
     public function getData(Request $request): JsonResponse
     {
-        // TODO: Substituir por dados reais do model Employee quando criado
-        // Por enquanto, retornamos dados mockados para demonstração
-        
         $start = $request->input('start', 0);
         $length = $request->input('length', 10);
         $search = $request->input('search.value', '');
+        $orderColumn = $request->input('order.0.column', 0);
+        $orderDir = $request->input('order.0.dir', 'desc');
         
-        // Dados mockados - substituir quando tiver o model Employee
-        $employees = [
-            [
-                'id' => 1,
-                'name' => 'João Silva',
-                'email' => 'joao.silva@empresa.com',
-                'position' => 'Desenvolvedor Senior',
-                'department' => 'TI',
-                'hire_date' => '2020-01-15',
-                'status' => 'active'
-            ],
-            [
-                'id' => 2,
-                'name' => 'Maria Santos',
-                'email' => 'maria.santos@empresa.com',
-                'position' => 'Analista de RH',
-                'department' => 'Recursos Humanos',
-                'hire_date' => '2019-03-20',
-                'status' => 'active'
-            ],
-            [
-                'id' => 3,
-                'name' => 'Pedro Costa',
-                'email' => 'pedro.costa@empresa.com',
-                'position' => 'Gerente de Vendas',
-                'department' => 'Vendas',
-                'hire_date' => '2018-07-10',
-                'status' => 'active'
-            ],
-            [
-                'id' => 4,
-                'name' => 'Ana Oliveira',
-                'email' => 'ana.oliveira@empresa.com',
-                'position' => 'Contadora',
-                'department' => 'Financeiro',
-                'hire_date' => '2021-06-05',
-                'status' => 'active'
-            ],
-            [
-                'id' => 5,
-                'name' => 'Carlos Ferreira',
-                'email' => 'carlos.ferreira@empresa.com',
-                'position' => 'Designer',
-                'department' => 'Marketing',
-                'hire_date' => '2022-02-14',
-                'status' => 'inactive'
-            ],
+        // Mapear colunas do DataTables para colunas do banco
+        $columns = [
+            'worker_id',
+            'worker_name',
+            'worker_email',
+            'role_name',
+            'department_name',
+            'worker_start_date',
+            'worker_status',
         ];
-
-        // Filtrar por busca se houver
+        
+        // Query base com eager loading
+        $query = Worker::with(['department', 'roles'])
+            ->whereNull('deleted_at');
+        
+        // Aplicar busca
         if (!empty($search)) {
-            $employees = array_filter($employees, function($employee) use ($search) {
-                return stripos($employee['name'], $search) !== false ||
-                       stripos($employee['email'], $search) !== false ||
-                       stripos($employee['position'], $search) !== false ||
-                       stripos($employee['department'], $search) !== false;
+            $query->where(function($q) use ($search) {
+                $q->where('worker_name', 'like', "%{$search}%")
+                  ->orWhere('worker_email', 'like', "%{$search}%")
+                  ->orWhereHas('roles', function($roleQuery) use ($search) {
+                      $roleQuery->where('role_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('department', function($deptQuery) use ($search) {
+                      $deptQuery->where('department_name', 'like', "%{$search}%");
+                  });
             });
         }
-
-        $totalRecords = count($employees);
-        $employees = array_values($employees); // Reindexar array
         
-        // Paginação
-        $employees = array_slice($employees, $start, $length);
+        // Contar total de registros antes da paginação
+        $totalRecords = Worker::whereNull('deleted_at')->count();
+        
+        // Clonar query para contar filtrados
+        $countQuery = clone $query;
+        $filteredCount = $countQuery->count();
+        
+        // Aplicar ordenação baseada na coluna selecionada
+        $orderByColumn = $columns[$orderColumn] ?? 'worker_id';
+        
+        // Ordenação simples para colunas diretas
+        if (in_array($orderByColumn, ['worker_id', 'worker_name', 'worker_email', 'worker_start_date', 'worker_status'])) {
+            $query->orderBy($orderByColumn, $orderDir);
+        } else {
+            // Default para ordenação por ID
+            $query->orderBy('worker_id', $orderDir);
+        }
+        
+        // Aplicar paginação
+        $workers = $query->skip($start)
+            ->take($length)
+            ->get();
+        
+        // Formatar dados para o DataTables
+        $data = $workers->map(function($worker) {
+            // Obter o primeiro role (ou concatenar todos se houver múltiplos)
+            $roles = $worker->roles->pluck('role_name')->implode(', ');
+            $position = $roles ?: '-';
+            
+            return [
+                'id' => $worker->worker_id,
+                'name' => $worker->worker_name,
+                'email' => $worker->worker_email,
+                'position' => $position,
+                'department' => $worker->department?->department_name ?? '-',
+                'hire_date' => $worker->worker_start_date?->format('Y-m-d') ?? null,
+                'status' => $worker->worker_status,
+            ];
+        });
 
         return response()->json([
             'draw' => intval($request->input('draw')),
             'recordsTotal' => $totalRecords,
-            'recordsFiltered' => $totalRecords,
-            'data' => $employees
+            'recordsFiltered' => $filteredCount,
+            'data' => $data
         ]);
     }
 }
