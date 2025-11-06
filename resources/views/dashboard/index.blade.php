@@ -95,6 +95,12 @@
                             </a>
                         </div>
 
+                        <div class="col-md-3 mb-3 p-3">
+                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                                <i class="fas fa-university me-2"></i>Treinamentos
+                            </a>
+                        </div>
+
                     </div>
                 </div>
             </div>

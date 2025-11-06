@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Models\Worker;
+use App\Models\Department;
+use App\Models\Role;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class EmployeeController extends Controller
 {
@@ -16,6 +20,83 @@ class EmployeeController extends Controller
     public function board()
     {
         return view('employees.board');
+    }
+
+    public function create()
+    {
+        $departments = Department::whereNull('deleted_at')
+            ->where('department_status', 1)
+            ->orderBy('department_name')
+            ->get();
+        
+        $roles = Role::whereNull('deleted_at')
+            ->where('role_status', 1)
+            ->orderBy('role_name')
+            ->get();
+        
+        return view('employees.create', compact('departments', 'roles'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'worker_name' => 'required|string|max:75',
+            'worker_email' => 'required|email|max:45|unique:workers,worker_email',
+            'worker_document' => 'required|string|max:20',
+            'worker_rg' => 'nullable|string|max:20',
+            'worker_birth_date' => 'required|date',
+            'worker_start_date' => 'required|date',
+            'worker_status' => 'required|integer|in:0,1',
+            'worker_salary' => 'required|numeric|min:0',
+            'department_id' => 'required|exists:departments,department_id',
+            'roles' => 'required|array|min:1',
+            'roles.*' => 'exists:roles,role_id',
+        ], [
+            'worker_name.required' => 'O nome do funcionário é obrigatório.',
+            'worker_email.required' => 'O email é obrigatório.',
+            'worker_email.email' => 'O email deve ser válido.',
+            'worker_email.unique' => 'Este email já está cadastrado.',
+            'worker_document.required' => 'O CPF é obrigatório.',
+            'worker_birth_date.required' => 'A data de nascimento é obrigatória.',
+            'worker_start_date.required' => 'A data de admissão é obrigatória.',
+            'worker_status.required' => 'O status é obrigatório.',
+            'worker_salary.required' => 'O salário é obrigatório.',
+            'department_id.required' => 'O departamento é obrigatório.',
+            'roles.required' => 'Selecione pelo menos um cargo.',
+            'roles.min' => 'Selecione pelo menos um cargo.',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $validated['created_by'] = Auth::user()->name ?? 'system';
+            $validated['created_at'] = now();
+            $validated['updated_at'] = now();
+
+            $roles = $validated['roles'];
+            unset($validated['roles']);
+
+            $worker = Worker::create($validated);
+
+            // Associar roles ao funcionário
+            foreach ($roles as $roleId) {
+                $worker->roles()->attach($roleId, [
+                    'worker_role_status' => 1,
+                    'created_at' => now(),
+                    'created_by' => Auth::user()->name ?? 'system',
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('employees.board')
+                ->with('success', 'Funcionário cadastrado com sucesso!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()
+                ->withInput()
+                ->with('error', 'Erro ao cadastrar funcionário: ' . $e->getMessage());
+        }
     }
 
     /**

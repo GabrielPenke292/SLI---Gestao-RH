@@ -28,4 +28,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');
     Route::get('/employees/data', [EmployeeController::class, 'getData'])->name('employees.data');
+    Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
+    Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
 });
