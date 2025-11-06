@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeUploadController;
 
 Route::get('/', [HomeController::class, 'index']);
 
@@ -30,4 +31,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/employees/data', [EmployeeController::class, 'getData'])->name('employees.data');
     Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
     Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
+    Route::get('/employees/upload', [EmployeeUploadController::class, 'index'])->name('employees.upload');
 });
