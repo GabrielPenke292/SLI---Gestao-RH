@@ -38,6 +38,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/employees/upload/confirm', [EmployeeUploadController::class, 'confirmStore'])->name('employees.upload.confirm');
     Route::get('/employees/history', [EmployeeHistoryController::class, 'index'])->name('employees.history');
     Route::get('/employees/calendar', [EmployeeCalendarController::class, 'index'])->name('employees.calendar');
+    Route::get('/employees/calendar/events', [EmployeeCalendarController::class, 'getEvents'])->name('employees.calendar.events');
+    Route::post('/employees/calendar/events', [EmployeeCalendarController::class, 'store'])->name('employees.calendar.events.store');
+    Route::put('/employees/calendar/events/{id}', [EmployeeCalendarController::class, 'update'])->name('employees.calendar.events.update');
+    Route::delete('/employees/calendar/events/{id}', [EmployeeCalendarController::class, 'destroy'])->name('employees.calendar.events.destroy');
     Route::get('/employees/{id}', [EmployeeController::class, 'view'])->name('employees.view');
     Route::get('/employees/{id}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
     Route::put('/employees/{id}', [EmployeeController::class, 'update'])->name('employees.update');
