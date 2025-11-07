@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeHistoryController;
 use App\Http\Controllers\EmployeeUploadController;
 
 Route::get('/', [HomeController::class, 'index']);
@@ -34,4 +35,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/employees/upload', [EmployeeUploadController::class, 'index'])->name('employees.upload');
     Route::post('/employees/upload/process', [EmployeeUploadController::class, 'processUpload'])->name('employees.upload.process');
     Route::post('/employees/upload/confirm', [EmployeeUploadController::class, 'confirmStore'])->name('employees.upload.confirm');
+    Route::get('/employees/history', [EmployeeHistoryController::class, 'index'])->name('employees.history');
 });
