@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Models\User;
+use App\Models\Permission;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -15,7 +17,12 @@ class UserController extends Controller
 
     public function create()
     {
-        return view('users.create');
+        $permissions = Permission::whereNull('deleted_at')
+            ->where('permission_status', 1)
+            ->orderBy('permission_name')
+            ->get();
+        
+        return view('users.create', compact('permissions'));
     }
 
     public function store(Request $request)
@@ -24,6 +31,8 @@ class UserController extends Controller
             'user_name' => 'required|string|max:75',
             'user_email' => 'required|email|max:45|unique:users,user_email',
             'user_password' => 'required|string|min:6|confirmed',
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'exists:permissions,permissio_id',
         ], [
             'user_name.required' => 'O nome do usuário é obrigatório.',
             'user_email.required' => 'O email é obrigatório.',
@@ -32,19 +41,31 @@ class UserController extends Controller
             'user_password.required' => 'A senha é obrigatória.',
             'user_password.min' => 'A senha deve ter no mínimo 6 caracteres.',
             'user_password.confirmed' => 'A confirmação de senha não confere.',
+            'permissions.array' => 'As permissões devem ser um array.',
+            'permissions.*.exists' => 'Uma ou mais permissões selecionadas são inválidas.',
         ]);
 
         try {
+            DB::beginTransaction();
+
             // O cast 'hashed' no modelo já faz o hash automaticamente
-            User::create([
+            $user = User::create([
                 'user_name' => $validated['user_name'],
                 'user_email' => $validated['user_email'],
                 'user_password' => $validated['user_password'],
             ]);
 
+            // Associar permissões ao usuário
+            if (!empty($validated['permissions'])) {
+                $user->permissions()->attach($validated['permissions']);
+            }
+
+            DB::commit();
+
             return redirect()->route('users.index')
                 ->with('success', 'Usuário cadastrado com sucesso!');
         } catch (\Exception $e) {
+            DB::rollBack();
             return back()
                 ->withInput()
                 ->with('error', 'Erro ao cadastrar usuário: ' . $e->getMessage());

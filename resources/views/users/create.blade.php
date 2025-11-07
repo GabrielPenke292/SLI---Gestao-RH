@@ -32,6 +32,27 @@
     .password-strength.strong {
         color: #198754;
     }
+
+    .permissions-section {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+    }
+
+    .permission-group {
+        margin-bottom: 0.5rem;
+    }
+
+    .permission-checkbox {
+        margin-right: 0.5rem;
+    }
+
+    .permission-label {
+        font-weight: normal;
+        cursor: pointer;
+        margin-bottom: 0;
+    }
 </style>
 @endpush
 
@@ -128,6 +149,58 @@
                                     </div>
                                 </div>
 
+                                <!-- Seção de Permissões -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <div class="permissions-section">
+                                            <label class="form-label fw-bold mb-3">
+                                                <i class="fas fa-shield-alt me-2"></i>Permissões do Usuário
+                                            </label>
+                                            <p class="text-muted small mb-3">
+                                                Selecione as permissões que este usuário terá no sistema. Nenhuma permissão é obrigatória.
+                                            </p>
+                                            
+                                            @if($permissions && $permissions->count() > 0)
+                                                <div class="row">
+                                                    @foreach($permissions as $permission)
+                                                        <div class="col-md-6 col-lg-4 mb-2 permission-group">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input permission-checkbox" 
+                                                                       type="checkbox" 
+                                                                       name="permissions[]" 
+                                                                       value="{{ $permission->permissio_id }}" 
+                                                                       id="permission_{{ $permission->permissio_id }}"
+                                                                       {{ in_array($permission->permissio_id, old('permissions', [])) ? 'checked' : '' }}>
+                                                                <label class="form-check-label permission-label" 
+                                                                       for="permission_{{ $permission->permissio_id }}">
+                                                                    {{ ucfirst(str_replace('_', ' ', $permission->permission_name)) }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                                
+                                                <div class="mt-3">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllPermissions">
+                                                        <i class="fas fa-check-square me-1"></i>Selecionar Todas
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllPermissions">
+                                                        <i class="fas fa-square me-1"></i>Desselecionar Todas
+                                                    </button>
+                                                </div>
+                                            @else
+                                                <div class="alert alert-info mb-0">
+                                                    <i class="fas fa-info-circle me-2"></i>Nenhuma permissão cadastrada no sistema.
+                                                </div>
+                                            @endif
+                                            
+                                            @error('permissions')
+                                                <div class="text-danger small mt-2">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Form Actions -->
                                 <div class="row mt-4">
                                     <div class="col-12 d-flex justify-content-end gap-2">
@@ -218,6 +291,16 @@
                 alert('A senha deve ter no mínimo 6 caracteres.');
                 return false;
             }
+        });
+
+        // Selecionar todas as permissões
+        $('#selectAllPermissions').on('click', function() {
+            $('.permission-checkbox').prop('checked', true);
+        });
+
+        // Desselecionar todas as permissões
+        $('#deselectAllPermissions').on('click', function() {
+            $('.permission-checkbox').prop('checked', false);
         });
     });
 </script>
