@@ -191,6 +191,30 @@ class EmployeeController extends Controller
         }
     }
 
+    public function destroy($id)
+    {
+        try {
+            $worker = Worker::whereNull('deleted_at')->findOrFail($id);
+            
+            // Atualizar deleted_by antes de fazer o soft delete
+            $worker->deleted_by = Auth::user()->name ?? 'system';
+            $worker->save();
+            
+            // Fazer o soft delete
+            $worker->delete();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Funcionário excluído com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao excluir funcionário: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Retorna os dados dos funcionários para o DataTables
      * 
