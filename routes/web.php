@@ -36,4 +36,5 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/employees/upload/process', [EmployeeUploadController::class, 'processUpload'])->name('employees.upload.process');
     Route::post('/employees/upload/confirm', [EmployeeUploadController::class, 'confirmStore'])->name('employees.upload.confirm');
     Route::get('/employees/history', [EmployeeHistoryController::class, 'index'])->name('employees.history');
+    Route::get('/employees/{id}', [EmployeeController::class, 'view'])->name('employees.view');
 });

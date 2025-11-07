@@ -85,7 +85,10 @@
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
-
+    <script>
+        const baseUrl = "{{ url('/') }}";
+        
+    </script>
     <script>
         $(document).ready(function() {
             $('#employeesTable').DataTable({
@@ -154,9 +157,9 @@
                         render: function(data, type, row) {
                             // Gerar HTML dos botões de ação
                             let html = '<div class="btn-group btn-group-sm" role="group">';
-                            html += '<button type="button" onclick="viewEmployee(' + row.id + ')" class="btn btn-info btn-view" data-id="' + row.id + '" title="Visualizar">';
+                            html += '<a href="' + baseUrl + '/employees/' + row.id + '" class="btn btn-info btn-view" data-id="' + row.id + '" title="Visualizar">';
                             html += '<i class="fas fa-eye"></i>';
-                            html += '</button>';
+                            html += '</a>';
                             html += '<button type="button" onclick="editEmployee(' + row.id + ')" class="btn btn-warning btn-edit" data-id="' + row.id + '" title="Editar">';
                             html += '<i class="fas fa-edit"></i>';
                             html += '</button>';
@@ -178,9 +181,6 @@
                 ]
             });
 
-            function viewEmployee(id) {
-                alert('Visualizar funcionário ID: ' + id);
-            }
 
             $(document).on('click', '.btn-edit', function() {
                 const id = $(this).data('id');

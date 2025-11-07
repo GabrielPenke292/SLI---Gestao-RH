@@ -99,6 +99,15 @@ class EmployeeController extends Controller
         }
     }
 
+    public function view($id)
+    {
+        $worker = Worker::with(['department', 'roles'])
+            ->whereNull('deleted_at')
+            ->findOrFail($id);
+        
+        return view('employees.view', compact('worker'));
+    }
+
     /**
      * Retorna os dados dos funcionários para o DataTables
      * 
