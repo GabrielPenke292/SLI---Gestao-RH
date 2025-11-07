@@ -152,8 +152,7 @@
         });
 
         function editUser(id) {
-            alert('Editar usuário ID: ' + id);
-            // Implementar modal ou redirecionamento para edição
+            window.location.href = "{{ route('users.edit', ':id') }}".replace(':id', id);
         }
 
         function deleteUser(id) {

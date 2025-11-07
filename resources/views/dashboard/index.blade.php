@@ -24,8 +24,21 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    @php
+                        $userPermissions = session('user.permissions', []);
+                        $canViewEmployees = in_array('funcionario', $userPermissions) 
+                            || in_array('rh operacional', $userPermissions) 
+                            || in_array('gerente rh', $userPermissions) 
+                            || in_array('diretoria', $userPermissions) 
+                            || in_array('admin', $userPermissions);
+                        $canViewReports = in_array('relatorios', $userPermissions) 
+                            || in_array('diretoria', $userPermissions) 
+                            || in_array('admin', $userPermissions);
+                        $canManageUsers = in_array('admin', $userPermissions) 
+                            || in_array('diretoria', $userPermissions);
+                    @endphp
                     <div class="row">
-                        @if(in_array('employee_view', session('user.permissions')))
+                        @if($canViewEmployees)
                         <div class="col-md-3 mb-3 p-3">
                             <a href="{{ route('employees.index') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-users me-2"></i>Funcionários
@@ -33,7 +46,7 @@
                         </div>
                         @endif
 
-                        @if(in_array('reports_view', session('user.permissions')))
+                        @if($canViewReports)
                         <div class="col-md-3 mb-3 p-3">
                             <a href="#" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-chart-bar me-2"></i>Relatórios
@@ -41,7 +54,7 @@
                         </div>
                         @endif
 
-                        @if(in_array('user_management', session('user.permissions')))
+                        @if($canManageUsers)
                         <div class="col-md-3 mb-3 p-3">
                             <a href="{{ route('users.index') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-user-cog me-2"></i>Usuários
@@ -49,7 +62,7 @@
                         </div>
                         @endif
 
-                        @if(in_array('admin', session('user.permissions')))
+                        @if($canManageUsers)
                         <div class="col-md-3 mb-3 p-3">
                             <a href="#" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-crown me-2"></i>Administração

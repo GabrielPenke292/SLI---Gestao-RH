@@ -72,6 +72,74 @@ class UserController extends Controller
         }
     }
 
+    public function edit($id)
+    {
+        $user = User::with('permissions')->findOrFail($id);
+        $permissions = Permission::whereNull('deleted_at')
+            ->where('permission_status', 1)
+            ->orderBy('permission_name')
+            ->get();
+        
+        return view('users.edit', compact('user', 'permissions'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'user_name' => 'required|string|max:75',
+            'user_email' => 'required|email|max:45|unique:users,user_email,' . $user->users_id . ',users_id',
+            'user_password' => 'nullable|string|min:6|confirmed',
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'exists:permissions,permissio_id',
+        ], [
+            'user_name.required' => 'O nome do usuário é obrigatório.',
+            'user_email.required' => 'O email é obrigatório.',
+            'user_email.email' => 'O email deve ser válido.',
+            'user_email.unique' => 'Este email já está cadastrado.',
+            'user_password.min' => 'A senha deve ter no mínimo 6 caracteres.',
+            'user_password.confirmed' => 'A confirmação de senha não confere.',
+            'permissions.array' => 'As permissões devem ser um array.',
+            'permissions.*.exists' => 'Uma ou mais permissões selecionadas são inválidas.',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Preparar dados para atualização
+            $updateData = [
+                'user_name' => $validated['user_name'],
+                'user_email' => $validated['user_email'],
+            ];
+
+            // Atualizar senha apenas se fornecida
+            if (!empty($validated['user_password'])) {
+                $updateData['user_password'] = $validated['user_password'];
+            }
+
+            $user->update($updateData);
+
+            // Sincronizar permissões (sync remove as antigas e adiciona as novas)
+            if (isset($validated['permissions'])) {
+                $user->permissions()->sync($validated['permissions']);
+            } else {
+                // Se nenhuma permissão foi selecionada, remover todas
+                $user->permissions()->sync([]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('users.index')
+                ->with('success', 'Usuário atualizado com sucesso!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()
+                ->withInput()
+                ->with('error', 'Erro ao atualizar usuário: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Retorna os dados dos usuários para o DataTables
      */
