@@ -27,6 +27,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/permissions/check/{permissions}', [AuthController::class, 'hasAnyPermission'])->name('permissions.check');
     Route::get('/permissions/check-all/{permissions}', [AuthController::class, 'hasAllPermissions'])->name('permissions.check.all');
 
+
+    // User routes
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');
