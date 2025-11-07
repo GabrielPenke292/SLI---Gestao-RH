@@ -117,9 +117,9 @@
                         <a href="{{ route('employees.board') }}" class="btn btn-light btn-sm">
                             <i class="fas fa-arrow-left me-1"></i>Voltar
                         </a>
-                        <button type="button" class="btn btn-warning btn-sm" data-worker-id="{{ $worker->worker_id }}" onclick="editEmployee(this)">
+                        <a href="{{ route('employees.edit', $worker->worker_id) }}" class="btn btn-warning btn-sm">
                             <i class="fas fa-edit me-1"></i>Editar
-                        </button>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -391,13 +391,3 @@
 
 @endsection
 
-@push('scripts')
-<script>
-    function editEmployee(button) {
-        const workerId = button.getAttribute('data-worker-id');
-        // Implementar redirecionamento para edição quando a funcionalidade estiver disponível
-        alert('Funcionalidade de edição será implementada em breve. ID: ' + workerId);
-        // window.location.href = '/employees/' + workerId + '/edit';
-    }
-</script>
-@endpush

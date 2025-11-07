@@ -108,6 +108,89 @@ class EmployeeController extends Controller
         return view('employees.view', compact('worker'));
     }
 
+    public function edit($id)
+    {
+        $worker = Worker::with(['department', 'roles'])
+            ->whereNull('deleted_at')
+            ->findOrFail($id);
+        
+        $departments = Department::whereNull('deleted_at')
+            ->where('department_status', 1)
+            ->orderBy('department_name')
+            ->get();
+        
+        $roles = Role::whereNull('deleted_at')
+            ->where('role_status', 1)
+            ->orderBy('role_name')
+            ->get();
+        
+        return view('employees.edit', compact('worker', 'departments', 'roles'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $worker = Worker::whereNull('deleted_at')->findOrFail($id);
+
+        $validated = $request->validate([
+            'worker_name' => 'required|string|max:75',
+            'worker_email' => 'required|email|max:45|unique:workers,worker_email,' . $worker->worker_id . ',worker_id',
+            'worker_document' => 'required|string|max:20',
+            'worker_rg' => 'nullable|string|max:20',
+            'worker_birth_date' => 'required|date',
+            'worker_start_date' => 'required|date',
+            'worker_status' => 'required|integer|in:0,1',
+            'worker_salary' => 'required|numeric|min:0',
+            'department_id' => 'required|exists:departments,department_id',
+            'roles' => 'required|array|min:1',
+            'roles.*' => 'exists:roles,role_id',
+        ], [
+            'worker_name.required' => 'O nome do funcionário é obrigatório.',
+            'worker_email.required' => 'O email é obrigatório.',
+            'worker_email.email' => 'O email deve ser válido.',
+            'worker_email.unique' => 'Este email já está cadastrado.',
+            'worker_document.required' => 'O CPF é obrigatório.',
+            'worker_birth_date.required' => 'A data de nascimento é obrigatória.',
+            'worker_start_date.required' => 'A data de admissão é obrigatória.',
+            'worker_status.required' => 'O status é obrigatório.',
+            'worker_salary.required' => 'O salário é obrigatório.',
+            'department_id.required' => 'O departamento é obrigatório.',
+            'roles.required' => 'Selecione pelo menos um cargo.',
+            'roles.min' => 'Selecione pelo menos um cargo.',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $validated['updated_by'] = Auth::user()->name ?? 'system';
+            $validated['updated_at'] = now();
+
+            $roles = $validated['roles'];
+            unset($validated['roles']);
+
+            $worker->update($validated);
+
+            // Remover todos os roles e adicionar os novos
+            $worker->roles()->detach();
+            foreach ($roles as $roleId) {
+                $worker->roles()->attach($roleId, [
+                    'worker_role_status' => 1,
+                    'created_at' => now(),
+                    'created_by' => Auth::user()->name ?? 'system',
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('employees.view', $worker->worker_id)
+                ->with('success', 'Funcionário atualizado com sucesso!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()
+                ->withInput()
+                ->with('error', 'Erro ao atualizar funcionário: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Retorna os dados dos funcionários para o DataTables
      * 

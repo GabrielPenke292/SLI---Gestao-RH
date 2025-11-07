@@ -160,9 +160,9 @@
                             html += '<a href="' + baseUrl + '/employees/' + row.id + '" class="btn btn-info btn-view" data-id="' + row.id + '" title="Visualizar">';
                             html += '<i class="fas fa-eye"></i>';
                             html += '</a>';
-                            html += '<button type="button" onclick="editEmployee(' + row.id + ')" class="btn btn-warning btn-edit" data-id="' + row.id + '" title="Editar">';
+                            html += '<a href="' + baseUrl + '/employees/' + row.id + '/edit" class="btn btn-warning btn-edit" data-id="' + row.id + '" title="Editar">';
                             html += '<i class="fas fa-edit"></i>';
-                            html += '</button>';
+                            html += '</a>';
                             html += '<button type="button" onclick="deleteEmployee(' + row.id + ')" class="btn btn-danger btn-delete" data-id="' + row.id + '" title="Excluir">';
                             html += '<i class="fas fa-trash"></i>';
                             html += '</button>';
@@ -179,13 +179,6 @@
                     [10, 25, 50, 100, -1],
                     [10, 25, 50, 100, "Todos"]
                 ]
-            });
-
-
-            $(document).on('click', '.btn-edit', function() {
-                const id = $(this).data('id');
-                alert('Editar funcionário ID: ' + id);
-                // Implementar modal ou redirecionamento para edição
             });
 
             $(document).on('click', '.btn-delete', function() {
