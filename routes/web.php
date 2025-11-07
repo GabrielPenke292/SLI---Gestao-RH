@@ -32,4 +32,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
     Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
     Route::get('/employees/upload', [EmployeeUploadController::class, 'index'])->name('employees.upload');
+    Route::post('/employees/upload/process', [EmployeeUploadController::class, 'processUpload'])->name('employees.upload.process');
+    Route::post('/employees/upload/confirm', [EmployeeUploadController::class, 'confirmStore'])->name('employees.upload.confirm');
 });

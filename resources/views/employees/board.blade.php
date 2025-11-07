@@ -26,8 +26,11 @@
     <div class="row">
         <div class="col-12">
             <div class="row">
-                <div class="col-12 d-flex justify-content-end">
+                <div class="col-12 d-flex justify-content-end gap-2">
                     <!-- btn add new employee aligned right -->
+                    <a href="{{ route('employees.upload') }}" class="btn btn-success mb-3">
+                        <i class="fas fa-upload me-2"></i>Upload Planilha
+                    </a>
                     <a href="{{ route('employees.create') }}" class="btn btn-primary mb-3">
                         <i class="fas fa-plus me-2"></i>Novo Funcionário
                     </a>
