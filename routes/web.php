@@ -8,6 +8,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeHistoryController;
 use App\Http\Controllers\EmployeeUploadController;
 use App\Http\Controllers\EmployeeCalendarController;
+use App\Http\Controllers\UserController;
 
 Route::get('/', [HomeController::class, 'index']);
 
@@ -30,6 +31,10 @@ Route::middleware(['auth'])->group(function () {
 
     // User routes
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/data', [UserController::class, 'getData'])->name('users.data');
+    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');

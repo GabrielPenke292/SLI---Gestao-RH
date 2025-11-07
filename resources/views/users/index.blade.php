@@ -1,20 +1,167 @@
 @extends('template.layout')
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+<style>
+    .dataTables_wrapper .dataTables_length select {
+        padding: 0.25rem 0.5rem;
+        margin: 0 0.5rem;
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        padding: 0.25rem 0.5rem;
+        margin-left: 0.5rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+</style>
+@endpush
+
 @section('content')
 
 <div class="container mt-4">
-
-    <!-- Quick Actions -->
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                
-                <div class="card-body">
-                    
-                    
+            <div class="row">
+                <div class="col-12 d-flex justify-content-end">
+                    <a href="{{ route('users.create') }}" class="btn btn-primary mb-3">
+                        <i class="fas fa-plus me-2"></i>Novo Usuário
+                    </a>
+                </div>
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-users me-2"></i>Usuários do Sistema</h4>
+                    </div>
+                    <div class="card-body">
+                        @if(session('success'))
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @endif
+
+                        @if(session('error'))
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        @endif
+
+                        <div class="table-responsive">
+                            <table id="usersTable" class="table table-striped table-hover table-bordered nowrap w-100" style="width:100%">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome</th>
+                                        <th>Email</th>
+                                        <th>Data de Cadastro</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Os dados serão carregados via AJAX -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 @endsection
+
+@push('scripts')
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#usersTable').DataTable({
+            processing: true,
+            serverSide: true,
+            responsive: true,
+            ajax: {
+                url: "{{ route('users.data') }}",
+                type: "GET",
+                error: function(xhr, error, code) {
+                    console.error('Erro ao carregar dados:', error);
+                    console.error('Código:', code);
+                    console.error('Response:', xhr.responseText);
+                }
+            },
+            language: {
+                url: "https://cdn.datatables.net/plug-ins/1.13.7/i18n/pt-BR.json"
+            },
+            columns: [{
+                    data: 'id',
+                    name: 'id',
+                    width: '5%'
+                },
+                {
+                    data: 'name',
+                    name: 'name'
+                },
+                {
+                    data: 'email',
+                    name: 'email'
+                },
+                {
+                    data: 'created_at',
+                    name: 'created_at',
+                    render: function(data) {
+                        if (data) {
+                            return new Date(data).toLocaleDateString('pt-BR') + ' ' + 
+                                   new Date(data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+                        }
+                        return '-';
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    width: '10%',
+                    defaultContent: '',
+                    render: function(data, type, row) {
+                        let html = '<div class="btn-group btn-group-sm" role="group">';
+                        html += '<button type="button" onclick="editUser(' + row.id + ')" class="btn btn-warning btn-edit" data-id="' + row.id + '" title="Editar">';
+                        html += '<i class="fas fa-edit"></i>';
+                        html += '</button>';
+                        html += '<button type="button" onclick="deleteUser(' + row.id + ')" class="btn btn-danger btn-delete" data-id="' + row.id + '" title="Excluir">';
+                        html += '<i class="fas fa-trash"></i>';
+                        html += '</button>';
+                        html += '</div>';
+                        return html;
+                    }
+                }
+            ],
+            order: [
+                [0, 'desc']
+            ],
+            pageLength: 10,
+            lengthMenu: [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, "Todos"]
+            ]
+        });
+
+        function editUser(id) {
+            alert('Editar usuário ID: ' + id);
+            // Implementar modal ou redirecionamento para edição
+        }
+
+        function deleteUser(id) {
+            if (confirm('Tem certeza que deseja excluir este usuário?')) {
+                alert('Excluir usuário ID: ' + id);
+                // Implementar requisição AJAX para exclusão
+            }
+        }
+    });
+</script>
+@endpush
