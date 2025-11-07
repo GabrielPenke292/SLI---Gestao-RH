@@ -40,7 +40,14 @@ Route::middleware(['auth'])->group(function () {
 
     // Vacancy routes
     Route::get('/vacancies', [VacanciesController::class, 'index'])->name('vacancies.index');
-
+    Route::get('/vacancies/open', [VacanciesController::class, 'open'])->name('vacancies.open');
+    Route::get('/vacancies/data', [VacanciesController::class, 'getData'])->name('vacancies.data');
+    Route::get('/vacancies/create', [VacanciesController::class, 'create'])->name('vacancies.create');
+    Route::post('/vacancies', [VacanciesController::class, 'store'])->name('vacancies.store');
+    Route::get('/vacancies/{id}/edit', [VacanciesController::class, 'edit'])->name('vacancies.edit');
+    Route::put('/vacancies/{id}', [VacanciesController::class, 'update'])->name('vacancies.update');
+    Route::delete('/vacancies/{id}', [VacanciesController::class, 'destroy'])->name('vacancies.destroy');
+    
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');
