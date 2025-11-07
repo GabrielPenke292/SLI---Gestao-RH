@@ -1,0 +1,20 @@
+@extends('template.layout')
+
+@section('content')
+
+<div class="container mt-4">
+
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                
+                <div class="card-body">
+                    Vagas        
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection

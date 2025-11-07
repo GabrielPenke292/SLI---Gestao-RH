@@ -9,6 +9,7 @@ use App\Http\Controllers\EmployeeHistoryController;
 use App\Http\Controllers\EmployeeUploadController;
 use App\Http\Controllers\EmployeeCalendarController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VacanciesController;
 
 Route::get('/', [HomeController::class, 'index']);
 
@@ -36,6 +37,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
     Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
+
+    // Vacancy routes
+    Route::get('/vacancies', [VacanciesController::class, 'index'])->name('vacancies.index');
 
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
