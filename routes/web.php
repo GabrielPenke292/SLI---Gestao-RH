@@ -10,6 +10,7 @@ use App\Http\Controllers\EmployeeUploadController;
 use App\Http\Controllers\EmployeeCalendarController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacanciesController;
+use App\Http\Controllers\SelectionsController;
 
 Route::get('/', [HomeController::class, 'index']);
 
@@ -49,6 +50,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/vacancies/{id}/edit', [VacanciesController::class, 'edit'])->name('vacancies.edit');
     Route::put('/vacancies/{id}', [VacanciesController::class, 'update'])->name('vacancies.update');
     Route::delete('/vacancies/{id}', [VacanciesController::class, 'destroy'])->name('vacancies.destroy');
+
+    // Selection routes
+    Route::get('/selections', [SelectionsController::class, 'index'])->name('selections.index');
     
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
