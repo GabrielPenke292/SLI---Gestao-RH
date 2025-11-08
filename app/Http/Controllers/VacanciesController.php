@@ -252,7 +252,6 @@ class VacanciesController extends Controller
         $search = $request->input('search.value', '');
         $orderColumn = $request->input('order.0.column', 0);
         $orderDir = $request->input('order.0.dir', 'desc');
-        $status = $request->input('status', 'aberta'); // Filtro por status
         
         // Mapear colunas do DataTables para colunas do banco
         $columns = [
@@ -264,14 +263,10 @@ class VacanciesController extends Controller
             'status',
         ];
         
-        // Query base com eager loading
+        // Query base com eager loading - apenas vagas abertas
         $query = Vacancy::with('department')
-            ->whereNull('deleted_at');
-
-        // Filtrar por status se especificado
-        if ($status && $status !== 'all') {
-            $query->where('status', $status);
-        }
+            ->whereNull('deleted_at')
+            ->where('status', 'aberta');
         
         // Aplicar busca
         if (!empty($search)) {
@@ -285,12 +280,10 @@ class VacanciesController extends Controller
             });
         }
         
-        // Contar total de registros antes da paginação
-        $totalQuery = Vacancy::whereNull('deleted_at');
-        if ($status && $status !== 'all') {
-            $totalQuery->where('status', $status);
-        }
-        $totalRecords = $totalQuery->count();
+        // Contar total de registros antes da paginação (apenas vagas abertas)
+        $totalRecords = Vacancy::whereNull('deleted_at')
+            ->where('status', 'aberta')
+            ->count();
         
         // Clonar query para contar filtrados
         $countQuery = clone $query;

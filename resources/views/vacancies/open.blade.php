@@ -53,19 +53,6 @@
                         </div>
                     @endif
 
-                    <!-- Filtro de Status -->
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <label for="statusFilter" class="form-label">Filtrar por Status:</label>
-                            <select id="statusFilter" class="form-select">
-                                <option value="all">Todas</option>
-                                <option value="aberta" selected>Abertas</option>
-                                <option value="pausada">Pausadas</option>
-                                <option value="encerrada">Encerradas</option>
-                            </select>
-                        </div>
-                    </div>
-
                     <!-- Modal de Confirmação de Exclusão -->
                     <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
@@ -144,9 +131,6 @@
             ajax: {
                 url: "{{ route('vacancies.data') }}",
                 type: "GET",
-                data: function(d) {
-                    d.status = $('#statusFilter').val();
-                },
                 error: function(xhr, error, code) {
                     console.error('Erro ao carregar dados:', error);
                     console.error('Código:', code);
@@ -221,11 +205,6 @@
                 [10, 25, 50, 100, -1],
                 [10, 25, 50, 100, "Todos"]
             ]
-        });
-
-        // Filtro de status
-        $('#statusFilter').on('change', function() {
-            vacanciesTable.ajax.reload();
         });
 
         // Modal de exclusão
