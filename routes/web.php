@@ -41,7 +41,9 @@ Route::middleware(['auth'])->group(function () {
     // Vacancy routes
     Route::get('/vacancies', [VacanciesController::class, 'index'])->name('vacancies.index');
     Route::get('/vacancies/open', [VacanciesController::class, 'open'])->name('vacancies.open');
+    Route::get('/vacancies/closed', [VacanciesController::class, 'closed'])->name('vacancies.closed');
     Route::get('/vacancies/data', [VacanciesController::class, 'getData'])->name('vacancies.data');
+    Route::get('/vacancies/closed/data', [VacanciesController::class, 'getClosedData'])->name('vacancies.closed.data');
     Route::get('/vacancies/create', [VacanciesController::class, 'create'])->name('vacancies.create');
     Route::post('/vacancies', [VacanciesController::class, 'store'])->name('vacancies.store');
     Route::get('/vacancies/{id}/edit', [VacanciesController::class, 'edit'])->name('vacancies.edit');

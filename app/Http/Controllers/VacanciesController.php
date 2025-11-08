@@ -38,6 +38,15 @@ class VacanciesController extends Controller
     }
 
     /**
+     * Listar vagas encerradas e pausadas
+     */
+    public function closed()
+    {
+        $canCreate = $this->checkPermission();
+        return view('vacancies.closed', compact('canCreate'));
+    }
+
+    /**
      * Listar vagas abertas
      */
     public function open()
@@ -343,6 +352,123 @@ class VacanciesController extends Controller
                 'department' => $vacancy->department?->department_name ?? '-',
                 'salary' => $salary,
                 'opening_date' => $vacancy->opening_date?->format('d/m/Y') ?? '-',
+                'status' => $statusBadge,
+                'status_raw' => $vacancy->status,
+                'can_edit' => $canEdit,
+            ];
+        });
+
+        return response()->json([
+            'draw' => intval($request->input('draw')),
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $filteredCount,
+            'data' => $data
+        ]);
+    }
+
+    /**
+     * Retorna os dados das vagas encerradas e pausadas para o DataTables
+     */
+    public function getClosedData(Request $request): JsonResponse
+    {
+        $start = $request->input('start', 0);
+        $length = $request->input('length', 10);
+        $search = $request->input('search.value', '');
+        $orderColumn = $request->input('order.0.column', 0);
+        $orderDir = $request->input('order.0.dir', 'desc');
+        
+        // Mapear colunas do DataTables para colunas do banco
+        $columns = [
+            'vacancy_id',
+            'vacancy_title',
+            'urgency_level',
+            'department_name',
+            'opening_date',
+            'closing_date',
+            'status',
+        ];
+        
+        // Query base com eager loading - vagas encerradas e pausadas
+        $query = Vacancy::with('department')
+            ->whereNull('deleted_at')
+            ->whereIn('status', ['encerrada', 'pausada']);
+        
+        // Aplicar busca
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('vacancy_title', 'like', "%{$search}%")
+                  ->orWhere('vacancy_description', 'like', "%{$search}%")
+                  ->orWhere('urgency_level', 'like', "%{$search}%")
+                  ->orWhereHas('department', function($deptQuery) use ($search) {
+                      $deptQuery->where('department_name', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        // Contar total de registros antes da paginação (vagas encerradas e pausadas)
+        $totalRecords = Vacancy::whereNull('deleted_at')
+            ->whereIn('status', ['encerrada', 'pausada'])
+            ->count();
+        
+        // Clonar query para contar filtrados
+        $countQuery = clone $query;
+        $filteredCount = $countQuery->count();
+        
+        // Aplicar ordenação
+        $orderByColumn = $columns[$orderColumn] ?? 'vacancy_id';
+        
+        if (in_array($orderByColumn, ['vacancy_id', 'vacancy_title', 'urgency_level', 'opening_date', 'closing_date', 'status'])) {
+            $query->orderBy($orderByColumn, $orderDir);
+        } else {
+            // Ordenação por relacionamento (departamento)
+            if ($orderByColumn === 'department_name') {
+                $query->join('departments', 'vacancies.department_id', '=', 'departments.department_id')
+                      ->orderBy('departments.department_name', $orderDir)
+                      ->select('vacancies.*');
+            } else {
+                $query->orderBy('vacancy_id', $orderDir);
+            }
+        }
+        
+        // Aplicar paginação
+        $vacancies = $query->skip($start)
+            ->take($length)
+            ->get();
+        
+        // Formatar dados para o DataTables
+        $canEdit = $this->checkPermission();
+        $data = $vacancies->map(function($vacancy) use ($canEdit) {
+            // Formatar salário
+            $salary = $vacancy->salary 
+                ? 'R$ ' . number_format($vacancy->salary, 2, ',', '.') 
+                : '-';
+            
+            // Badge de urgência
+            $urgencyBadges = [
+                'baixa' => '<span class="badge bg-success">Baixa</span>',
+                'media' => '<span class="badge bg-info">Média</span>',
+                'alta' => '<span class="badge bg-warning">Alta</span>',
+                'critica' => '<span class="badge bg-danger">Crítica</span>',
+            ];
+            $urgencyBadge = $urgencyBadges[$vacancy->urgency_level] ?? '';
+
+            // Badge de status
+            $statusBadges = [
+                'aberta' => '<span class="badge bg-success">Aberta</span>',
+                'pausada' => '<span class="badge bg-warning">Pausada</span>',
+                'encerrada' => '<span class="badge bg-secondary">Encerrada</span>',
+            ];
+            $statusBadge = $statusBadges[$vacancy->status] ?? '';
+
+            return [
+                'id' => $vacancy->vacancy_id,
+                'title' => $vacancy->vacancy_title,
+                'urgency' => $urgencyBadge,
+                'urgency_raw' => $vacancy->urgency_level,
+                'department' => $vacancy->department?->department_name ?? '-',
+                'salary' => $salary,
+                'opening_date' => $vacancy->opening_date?->format('d/m/Y') ?? '-',
+                'closing_date' => $vacancy->closing_date?->format('d/m/Y') ?? '-',
                 'status' => $statusBadge,
                 'status_raw' => $vacancy->status,
                 'can_edit' => $canEdit,
