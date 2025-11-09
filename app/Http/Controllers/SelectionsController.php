@@ -35,22 +35,32 @@ class SelectionsController extends Controller
      */
     public function index()
     {
-        $canApprove = $this->canApprove();
-        
-        // Contar processos por status
-        $awaitingApproval = SelectionProcess::whereNull('deleted_at')
-            ->awaitingApproval()
-            ->count();
-        
-        $inProgress = SelectionProcess::whereNull('deleted_at')
-            ->inProgress()
-            ->count();
-        
-        $finished = SelectionProcess::whereNull('deleted_at')
-            ->finished()
-            ->count();
+        return view('selections.index');
+    }
 
-        return view('selections.index', compact('canApprove', 'awaitingApproval', 'inProgress', 'finished'));
+    /**
+     * Exibir processos aguardando aprovação
+     */
+    public function awaiting()
+    {
+        $canApprove = $this->canApprove();
+        return view('selections.awaiting', compact('canApprove'));
+    }
+
+    /**
+     * Exibir processos em andamento
+     */
+    public function inProgress()
+    {
+        return view('selections.in-progress');
+    }
+
+    /**
+     * Exibir processos encerrados e congelados
+     */
+    public function finished()
+    {
+        return view('selections.finished');
     }
 
     /**

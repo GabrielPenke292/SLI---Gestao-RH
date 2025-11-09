@@ -53,6 +53,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Selection routes
     Route::get('/selections', [SelectionsController::class, 'index'])->name('selections.index');
+    Route::get('/selections/awaiting', [SelectionsController::class, 'awaiting'])->name('selections.awaiting');
+    Route::get('/selections/in-progress', [SelectionsController::class, 'inProgress'])->name('selections.in-progress');
+    Route::get('/selections/finished', [SelectionsController::class, 'finished'])->name('selections.finished');
     Route::get('/selections/create', [SelectionsController::class, 'create'])->name('selections.create');
     Route::post('/selections', [SelectionsController::class, 'store'])->name('selections.store');
     Route::get('/selections/{id}/edit', [SelectionsController::class, 'edit'])->name('selections.edit');
