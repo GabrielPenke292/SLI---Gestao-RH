@@ -53,6 +53,15 @@ Route::middleware(['auth'])->group(function () {
 
     // Selection routes
     Route::get('/selections', [SelectionsController::class, 'index'])->name('selections.index');
+    Route::get('/selections/create', [SelectionsController::class, 'create'])->name('selections.create');
+    Route::post('/selections', [SelectionsController::class, 'store'])->name('selections.store');
+    Route::get('/selections/{id}/edit', [SelectionsController::class, 'edit'])->name('selections.edit');
+    Route::put('/selections/{id}', [SelectionsController::class, 'update'])->name('selections.update');
+    Route::post('/selections/{id}/approve', [SelectionsController::class, 'approve'])->name('selections.approve');
+    Route::delete('/selections/{id}', [SelectionsController::class, 'destroy'])->name('selections.destroy');
+    Route::get('/selections/awaiting/data', [SelectionsController::class, 'getAwaitingApprovalData'])->name('selections.awaiting.data');
+    Route::get('/selections/in-progress/data', [SelectionsController::class, 'getInProgressData'])->name('selections.in-progress.data');
+    Route::get('/selections/finished/data', [SelectionsController::class, 'getFinishedData'])->name('selections.finished.data');
     
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');

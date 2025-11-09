@@ -78,12 +78,11 @@ class Vacancy extends Model
 
     /**
      * Relacionamento: Uma vaga pode ter muitos processos seletivos
-     * (será implementado quando os processos seletivos forem criados)
      */
-    // public function selectionProcesses(): HasMany
-    // {
-    //     return $this->hasMany(SelectionProcess::class, 'vacancy_id', 'vacancy_id');
-    // }
+    public function selectionProcesses(): HasMany
+    {
+        return $this->hasMany(SelectionProcess::class, 'vacancy_id', 'vacancy_id');
+    }
 
     /**
      * Scope para vagas abertas
