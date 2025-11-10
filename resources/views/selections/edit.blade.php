@@ -118,6 +118,7 @@
                                             <option value="em_andamento" {{ old('status', $process->status) == 'em_andamento' ? 'selected' : '' }}>Em Andamento</option>
                                             <option value="encerrado" {{ old('status', $process->status) == 'encerrado' ? 'selected' : '' }}>Encerrado</option>
                                             <option value="congelado" {{ old('status', $process->status) == 'congelado' ? 'selected' : '' }}>Congelado</option>
+                                            <option value="reprovado" {{ old('status', $process->status) == 'reprovado' ? 'selected' : '' }}>Reprovado</option>
                                         </select>
                                         @error('status')
                                             <div class="invalid-feedback">{{ $message }}</div>

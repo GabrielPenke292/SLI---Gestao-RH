@@ -215,7 +215,7 @@ class SelectionsController extends Controller
             'reason' => 'required|in:substituicao,aumento_quadro',
             'approver_id' => 'required|exists:users,users_id',
             'budget' => 'nullable|numeric|min:0',
-            'status' => 'required|in:aguardando_aprovacao,em_andamento,encerrado,congelado',
+            'status' => 'required|in:aguardando_aprovacao,em_andamento,encerrado,congelado,reprovado',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'observations' => 'nullable|string',
@@ -233,7 +233,7 @@ class SelectionsController extends Controller
             'budget.numeric' => 'A verba deve ser um número válido.',
             'budget.min' => 'A verba não pode ser negativa.',
             'status.required' => 'O status é obrigatório.',
-            'status.in' => 'O status deve ser: aguardando aprovação, em andamento, encerrado ou congelado.',
+            'status.in' => 'O status deve ser: aguardando aprovação, em andamento, encerrado, congelado ou reprovado.',
             'start_date.date' => 'A data de início deve ser uma data válida.',
             'end_date.date' => 'A data de encerramento deve ser uma data válida.',
             'end_date.after_or_equal' => 'A data de encerramento deve ser igual ou posterior à data de início.',
@@ -361,6 +361,61 @@ class SelectionsController extends Controller
     }
 
     /**
+     * Reprovar processo seletivo
+     */
+    public function reject(Request $request, $id)
+    {
+        if (!$this->canApprove()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você não tem permissão para reprovar processos seletivos.'
+            ], 403);
+        }
+
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+
+        if ($process->status !== 'aguardando_aprovacao') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apenas processos aguardando aprovação podem ser reprovados.'
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'approval_notes' => 'required|string|min:10',
+        ], [
+            'approval_notes.required' => 'O motivo da reprovação é obrigatório.',
+            'approval_notes.min' => 'O motivo da reprovação deve ter pelo menos 10 caracteres.',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $process->update([
+                'status' => 'reprovado',
+                'approver_id' => Auth::user()->users_id,
+                'approval_date' => now()->toDateString(),
+                'approval_notes' => $validated['approval_notes'],
+                'updated_by' => Auth::user()->user_name ?? 'system',
+                'updated_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Processo seletivo reprovado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao reprovar processo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Excluir processo seletivo (soft delete)
      */
     public function destroy($id)
@@ -406,7 +461,7 @@ class SelectionsController extends Controller
      */
     public function getFinishedData(Request $request): JsonResponse
     {
-        return $this->getDataByStatus($request, ['encerrado', 'congelado']);
+        return $this->getDataByStatus($request, ['encerrado', 'congelado', 'reprovado']);
     }
 
     /**
@@ -511,6 +566,7 @@ class SelectionsController extends Controller
                 'em_andamento' => '<span class="badge bg-success">Em Andamento</span>',
                 'encerrado' => '<span class="badge bg-secondary">Encerrado</span>',
                 'congelado' => '<span class="badge bg-info">Congelado</span>',
+                'reprovado' => '<span class="badge bg-danger">Reprovado</span>',
             ];
 
             $budget = $process->budget 

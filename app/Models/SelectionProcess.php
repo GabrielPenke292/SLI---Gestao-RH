@@ -113,6 +113,6 @@ class SelectionProcess extends Model
      */
     public function scopeFinished($query)
     {
-        return $query->whereIn('status', ['encerrado', 'congelado']);
+        return $query->whereIn('status', ['encerrado', 'congelado', 'reprovado']);
     }
 }

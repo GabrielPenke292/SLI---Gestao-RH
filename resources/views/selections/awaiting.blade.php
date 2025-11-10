@@ -82,6 +82,38 @@
                         </div>
                     </div>
 
+                    <!-- Modal de Reprovação -->
+                    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="rejectModalLabel">
+                                        <i class="fas fa-times-circle me-2"></i>Reprovar Processo Seletivo
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form id="rejectForm">
+                                    <div class="modal-body">
+                                        <p>Tem certeza que deseja reprovar este processo seletivo?</p>
+                                        <div class="mb-3">
+                                            <label for="rejection_notes" class="form-label required-field">Motivo da Reprovação:</label>
+                                            <textarea class="form-control" id="rejection_notes" name="approval_notes" rows="4" placeholder="Informe o motivo da reprovação (ex: falta de orçamento, vaga não prioritária, etc.)..." required></textarea>
+                                            <small class="form-text text-muted">Mínimo de 10 caracteres</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                            <i class="fas fa-times me-1"></i>Cancelar
+                                        </button>
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="fas fa-times-circle me-1"></i>Reprovar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Modal de Confirmação de Exclusão -->
                     <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
                         <div class="modal-dialog">
@@ -149,8 +181,9 @@
 <script>
     const baseUrl = "{{ url('/') }}";
     let selectionsTable;
-    let approveProcessId = null;
-    let deleteProcessId = null;
+        let approveProcessId = null;
+        let rejectProcessId = null;
+        let deleteProcessId = null;
     const canApprove = @json($canApprove);
     
     $(document).ready(function() {
@@ -223,6 +256,9 @@
                             html += '<button type="button" class="btn btn-success btn-approve" data-id="' + row.id + '" title="Aprovar">';
                             html += '<i class="fas fa-check"></i>';
                             html += '</button>';
+                            html += '<button type="button" class="btn btn-danger btn-reject" data-id="' + row.id + '" title="Reprovar">';
+                            html += '<i class="fas fa-times"></i>';
+                            html += '</button>';
                         }
                         html += '<button type="button" class="btn btn-danger btn-delete" data-id="' + row.id + '" title="Excluir">';
                         html += '<i class="fas fa-trash"></i>';
@@ -275,6 +311,48 @@
                 complete: function() {
                     btn.prop('disabled', false).html(originalHtml);
                     approveProcessId = null;
+                }
+            });
+        });
+
+        // Modal de reprovação
+        const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+        $(document).on('click', '.btn-reject', function(e) {
+            e.preventDefault();
+            rejectProcessId = $(this).data('id');
+            rejectModal.show();
+        });
+
+        $('#rejectForm').on('submit', function(e) {
+            e.preventDefault();
+            if (!rejectProcessId) return;
+
+            const btn = $('#rejectForm button[type="submit"]');
+            const originalHtml = btn.html();
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Reprovando...');
+
+            $.ajax({
+                url: baseUrl + '/selections/' + rejectProcessId + '/reject',
+                type: 'POST',
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                data: { approval_notes: $('#rejection_notes').val() },
+                success: function(response) {
+                    rejectModal.hide();
+                    $('#rejection_notes').val('');
+                    showAlert('success', response.message);
+                    selectionsTable.ajax.reload(null, false);
+                },
+                error: function(xhr) {
+                    const errorMessage = xhr.responseJSON?.message || 'Erro ao reprovar processo.';
+                    showAlert('danger', errorMessage);
+                    if (xhr.responseJSON?.errors?.approval_notes) {
+                        $('#rejection_notes').addClass('is-invalid');
+                        $('#rejection_notes').after('<div class="invalid-feedback">' + xhr.responseJSON.errors.approval_notes[0] + '</div>');
+                    }
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html(originalHtml);
+                    rejectProcessId = null;
                 }
             });
         });
