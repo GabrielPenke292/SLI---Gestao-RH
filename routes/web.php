@@ -72,6 +72,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Candidate routes
     Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates.index');
+    Route::get('/candidates/data', [CandidatesController::class, 'getData'])->name('candidates.data');
+    Route::get('/candidates/create', [CandidatesController::class, 'create'])->name('candidates.create');
+    Route::post('/candidates', [CandidatesController::class, 'store'])->name('candidates.store');
+    Route::get('/candidates/{id}', [CandidatesController::class, 'show'])->name('candidates.show');
+    Route::get('/candidates/{id}/edit', [CandidatesController::class, 'edit'])->name('candidates.edit');
+    Route::put('/candidates/{id}', [CandidatesController::class, 'update'])->name('candidates.update');
+    Route::delete('/candidates/{id}', [CandidatesController::class, 'destroy'])->name('candidates.destroy');
 
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
