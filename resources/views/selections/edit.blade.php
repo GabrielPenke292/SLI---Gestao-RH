@@ -125,16 +125,17 @@
                                     </div>
 
                                     <div class="col-md-6 mb-3">
-                                        <label for="approver_id" class="form-label">Aprovador</label>
+                                        <label for="approver_id" class="form-label required-field">Aprovador</label>
                                         <select class="form-select @error('approver_id') is-invalid @enderror" 
-                                                id="approver_id" name="approver_id">
-                                            <option value="">Selecione um aprovador (opcional)</option>
+                                                id="approver_id" name="approver_id" required>
+                                            <option value="">Selecione um aprovador...</option>
                                             @foreach($approvers as $approver)
                                                 <option value="{{ $approver->users_id }}" {{ old('approver_id', $process->approver_id) == $approver->users_id ? 'selected' : '' }}>
                                                     {{ $approver->user_name }}
                                                 </option>
                                             @endforeach
                                         </select>
+                                        <small class="form-text text-muted">Usuário que aprovará o processo (admin, diretoria ou gerente RH)</small>
                                         @error('approver_id')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
