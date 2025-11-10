@@ -95,8 +95,163 @@ class CandidatesController extends Controller
      */
     public function show($id)
     {
-        $candidate = Candidate::whereNull('deleted_at')->findOrFail($id);
+        $candidate = Candidate::with('selectionProcesses.vacancy', 'selectionProcesses.approver')
+            ->whereNull('deleted_at')
+            ->findOrFail($id);
         return view('candidates.show', compact('candidate'));
+    }
+
+    /**
+     * Retornar timeline de um processo seletivo específico para o candidato
+     */
+    public function getProcessTimeline(Request $request, $candidateId): JsonResponse
+    {
+        $candidate = Candidate::whereNull('deleted_at')->findOrFail($candidateId);
+        $processId = $request->input('process_id');
+        
+        if (!$processId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Processo seletivo não especificado.'
+            ], 400);
+        }
+        
+        // Verificar se o candidato está vinculado a este processo
+        $process = $candidate->selectionProcesses()
+            ->where('selection_processes.selection_process_id', $processId)
+            ->whereNull('selection_processes.deleted_at')
+            ->with(['vacancy', 'approver'])
+            ->first();
+        
+        if (!$process) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Processo seletivo não encontrado ou candidato não está vinculado a este processo.'
+            ], 404);
+        }
+        
+        // Construir timeline com eventos do processo
+        $timeline = [];
+        
+        // Evento: Criação do processo
+        if ($process->created_at) {
+            $timeline[] = [
+                'date' => $process->created_at->format('d/m/Y H:i'),
+                'title' => 'Processo Criado',
+                'description' => 'Processo seletivo foi criado',
+                'icon' => 'fa-plus-circle',
+                'color' => 'primary',
+                'status' => 'completed'
+            ];
+        }
+        
+        // Evento: Vinculação do candidato
+        if ($process->pivot->created_at) {
+            $timeline[] = [
+                'date' => $process->pivot->created_at->format('d/m/Y H:i'),
+                'title' => 'Candidato Vinculado',
+                'description' => 'Você foi vinculado a este processo seletivo',
+                'icon' => 'fa-user-plus',
+                'color' => 'info',
+                'status' => 'completed'
+            ];
+        }
+        
+        // Evento: Aguardando aprovação
+        if ($process->status === 'aguardando_aprovacao') {
+            $timeline[] = [
+                'date' => $process->created_at?->format('d/m/Y H:i') ?? '-',
+                'title' => 'Aguardando Aprovação',
+                'description' => 'Processo aguardando aprovação do diretor',
+                'icon' => 'fa-clock',
+                'color' => 'warning',
+                'status' => 'current'
+            ];
+        }
+        
+        // Evento: Aprovação
+        if ($process->approval_date) {
+            $timeline[] = [
+                'date' => $process->approval_date->format('d/m/Y'),
+                'title' => 'Processo Aprovado',
+                'description' => 'Processo aprovado por ' . ($process->approver->user_name ?? 'N/A'),
+                'icon' => 'fa-check-circle',
+                'color' => 'success',
+                'status' => 'completed'
+            ];
+        }
+        
+        // Evento: Reprovação
+        if ($process->status === 'reprovado') {
+            $timeline[] = [
+                'date' => $process->approval_date?->format('d/m/Y') ?? $process->updated_at?->format('d/m/Y H:i') ?? '-',
+                'title' => 'Processo Reprovado',
+                'description' => $process->approval_notes ?? 'Processo foi reprovado',
+                'icon' => 'fa-times-circle',
+                'color' => 'danger',
+                'status' => 'completed'
+            ];
+        }
+        
+        // Evento: Início do processo
+        if ($process->start_date && $process->status === 'em_andamento') {
+            $timeline[] = [
+                'date' => $process->start_date->format('d/m/Y'),
+                'title' => 'Processo Iniciado',
+                'description' => 'Processo seletivo em andamento',
+                'icon' => 'fa-play-circle',
+                'color' => 'success',
+                'status' => $process->status === 'em_andamento' ? 'current' : 'completed'
+            ];
+        }
+        
+        // Evento: Status do candidato no processo
+        $candidateStatus = $process->pivot->status ?? 'pendente';
+        $statusLabels = [
+            'pendente' => ['Pendente', 'Aguardando avaliação'],
+            'aprovado' => ['Aprovado', 'Você foi aprovado neste processo'],
+            'reprovado' => ['Reprovado', 'Você foi reprovado neste processo'],
+            'contratado' => ['Contratado', 'Você foi contratado!']
+        ];
+        
+        if (isset($statusLabels[$candidateStatus])) {
+            $timeline[] = [
+                'date' => $process->pivot->updated_at?->format('d/m/Y H:i') ?? $process->pivot->created_at?->format('d/m/Y H:i') ?? '-',
+                'title' => 'Status: ' . $statusLabels[$candidateStatus][0],
+                'description' => $statusLabels[$candidateStatus][1],
+                'icon' => $candidateStatus === 'aprovado' || $candidateStatus === 'contratado' ? 'fa-check' : ($candidateStatus === 'reprovado' ? 'fa-times' : 'fa-hourglass-half'),
+                'color' => $candidateStatus === 'aprovado' || $candidateStatus === 'contratado' ? 'success' : ($candidateStatus === 'reprovado' ? 'danger' : 'warning'),
+                'status' => 'current'
+            ];
+        }
+        
+        // Evento: Encerramento
+        if ($process->end_date || in_array($process->status, ['encerrado', 'congelado'])) {
+            $timeline[] = [
+                'date' => $process->end_date?->format('d/m/Y') ?? $process->updated_at?->format('d/m/Y H:i') ?? '-',
+                'title' => 'Processo Encerrado',
+                'description' => $process->status === 'congelado' ? 'Processo foi congelado' : 'Processo seletivo encerrado',
+                'icon' => 'fa-stop-circle',
+                'color' => 'secondary',
+                'status' => 'completed'
+            ];
+        }
+        
+        // Ordenar timeline por data
+        usort($timeline, function($a, $b) {
+            return strtotime(str_replace('/', '-', $a['date'])) <=> strtotime(str_replace('/', '-', $b['date']));
+        });
+        
+        return response()->json([
+            'success' => true,
+            'process' => [
+                'id' => $process->selection_process_id,
+                'number' => $process->process_number,
+                'vacancy' => $process->vacancy->vacancy_title ?? 'N/A',
+                'status' => $process->status,
+            ],
+            'timeline' => $timeline
+        ]);
     }
 
     /**

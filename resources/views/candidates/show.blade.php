@@ -170,10 +170,195 @@
                     </div>
                 </div>
                 @endif
+
+                <!-- Timeline de Processos Seletivos -->
+                @if($candidate->selectionProcesses->count() > 0)
+                <div class="col-md-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Timeline de Processos Seletivos</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="processSelect" class="form-label">Selecione o Processo Seletivo:</label>
+                                <select class="form-select" id="processSelect">
+                                    <option value="">Selecione um processo...</option>
+                                    @foreach($candidate->selectionProcesses as $process)
+                                        <option value="{{ $process->selection_process_id }}">
+                                            {{ $process->process_number }} - {{ $process->vacancy->vacancy_title ?? 'N/A' }} 
+                                            ({{ ucfirst(str_replace('_', ' ', $process->status)) }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            
+                            <div id="timelineContainer" class="mt-4">
+                                <p class="text-muted text-center">Selecione um processo seletivo para visualizar a timeline.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
     </div>
 </div>
 
 @endsection
+
+@push('styles')
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+        padding-left: 40px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -7px;
+        top: 5px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        border: 3px solid;
+        z-index: 1;
+    }
+    
+    .timeline-item.completed::before {
+        border-color: #28a745;
+    }
+    
+    .timeline-item.current::before {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.2);
+        animation: pulse 2s infinite;
+    }
+    
+    .timeline-item.danger::before {
+        border-color: #dc3545;
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.2);
+        }
+        50% {
+            box-shadow: 0 0 0 8px rgba(255, 193, 7, 0);
+        }
+    }
+    
+    .timeline-content {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        border-left: 4px solid;
+    }
+    
+    .timeline-content.primary {
+        border-left-color: #0d6efd;
+    }
+    
+    .timeline-content.success {
+        border-left-color: #28a745;
+    }
+    
+    .timeline-content.warning {
+        border-left-color: #ffc107;
+    }
+    
+    .timeline-content.danger {
+        border-left-color: #dc3545;
+    }
+    
+    .timeline-content.info {
+        border-left-color: #17a2b8;
+    }
+    
+    .timeline-content.secondary {
+        border-left-color: #6c757d;
+    }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+    $(document).ready(function() {
+        const candidateId = {{ $candidate->candidate_id ?? 0 }};
+        
+        $('#processSelect').on('change', function() {
+            const processId = $(this).val();
+            const container = $('#timelineContainer');
+            
+            if (!processId) {
+                container.html('<p class="text-muted text-center">Selecione um processo seletivo para visualizar a timeline.</p>');
+                return;
+            }
+            
+            container.html('<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
+            
+            $.ajax({
+                url: '{{ route("candidates.timeline", ":id") }}'.replace(':id', candidateId),
+                method: 'GET',
+                data: {
+                    process_id: processId
+                },
+                success: function(response) {
+                    if (response.success) {
+                        let html = `
+                            <div class="mb-3">
+                                <h6><strong>Processo:</strong> ${response.process.number}</h6>
+                                <p class="mb-0"><strong>Vaga:</strong> ${response.process.vacancy}</p>
+                            </div>
+                            <div class="timeline">
+                        `;
+                        
+                        response.timeline.forEach(function(item, index) {
+                            html += `
+                                <div class="timeline-item ${item.status}">
+                                    <div class="timeline-content ${item.color}">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="mb-0">
+                                                <i class="fas ${item.icon} me-2"></i>${item.title}
+                                            </h6>
+                                            <small class="text-muted">${item.date}</small>
+                                        </div>
+                                        <p class="mb-0">${item.description}</p>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div>';
+                        container.html(html);
+                    } else {
+                        container.html('<div class="alert alert-danger">' + (response.message || 'Erro ao carregar timeline.') + '</div>');
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao carregar timeline.';
+                    container.html('<div class="alert alert-danger">' + message + '</div>');
+                }
+            });
+        });
+    });
+</script>
+@endpush
 
