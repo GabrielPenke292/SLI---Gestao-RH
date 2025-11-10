@@ -65,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/selections/awaiting/data', [SelectionsController::class, 'getAwaitingApprovalData'])->name('selections.awaiting.data');
     Route::get('/selections/in-progress/data', [SelectionsController::class, 'getInProgressData'])->name('selections.in-progress.data');
     Route::get('/selections/finished/data', [SelectionsController::class, 'getFinishedData'])->name('selections.finished.data');
+    Route::get('/selections/vacancy/{id}/dates', [SelectionsController::class, 'getVacancyDates'])->name('selections.vacancy.dates');
     
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');

@@ -203,22 +203,128 @@
 @push('scripts')
 <script>
     $(document).ready(function() {
-        // Validação de data de encerramento
-        $('#start_date, #end_date').on('change', function() {
+        let vacancyOpeningDate = null;
+        let vacancyClosingDate = null;
+
+        // Função para atualizar as restrições de data baseadas na vaga selecionada
+        function updateDateRestrictions(vacancyId) {
+            if (!vacancyId) {
+                // Se nenhuma vaga estiver selecionada, remover restrições
+                $('#end_date').attr('min', '');
+                $('#end_date').attr('max', '');
+                $('#start_date').attr('min', '');
+                $('#start_date').attr('max', '');
+                vacancyOpeningDate = null;
+                vacancyClosingDate = null;
+                return;
+            }
+
+            // Buscar dados da vaga
+            $.ajax({
+                url: '{{ route("selections.vacancy.dates", ":id") }}'.replace(':id', vacancyId),
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        vacancyOpeningDate = response.opening_date;
+                        vacancyClosingDate = response.closing_date;
+
+                        // Atualizar restrições do campo end_date
+                        if (vacancyOpeningDate) {
+                            $('#end_date').attr('min', vacancyOpeningDate);
+                            $('#start_date').attr('min', vacancyOpeningDate);
+                        } else {
+                            $('#end_date').attr('min', '');
+                            $('#start_date').attr('min', '');
+                        }
+
+                        if (vacancyClosingDate) {
+                            $('#end_date').attr('max', vacancyClosingDate);
+                            $('#start_date').attr('max', vacancyClosingDate);
+                        } else {
+                            $('#end_date').attr('max', '');
+                            $('#start_date').attr('max', '');
+                        }
+
+                        // Validar data atual se já estiver preenchida
+                        validateEndDate();
+                    }
+                },
+                error: function() {
+                    console.error('Erro ao buscar dados da vaga');
+                }
+            });
+        }
+
+        // Função para validar a data de encerramento
+        function validateEndDate() {
             const startDate = $('#start_date').val();
             const endDate = $('#end_date').val();
             
-            if (startDate && endDate) {
-                if (new Date(endDate) < new Date(startDate)) {
-                    $('#end_date').addClass('is-invalid');
-                    $('#end_date').next('.invalid-feedback').remove();
-                    $('#end_date').after('<div class="invalid-feedback">A data de encerramento deve ser igual ou posterior à data de início.</div>');
-                } else {
-                    $('#end_date').removeClass('is-invalid');
-                    $('#end_date').next('.invalid-feedback').remove();
-                }
+            // Remover validações anteriores
+            $('#end_date').removeClass('is-invalid');
+            $('#end_date').next('.invalid-feedback').remove();
+
+            if (!endDate) {
+                return;
+            }
+
+            let hasError = false;
+            let errorMessage = '';
+
+            // Validar se end_date está dentro do intervalo da vaga
+            if (vacancyOpeningDate && new Date(endDate) < new Date(vacancyOpeningDate)) {
+                hasError = true;
+                errorMessage = `A data de encerramento deve ser igual ou posterior à data de abertura da vaga (${formatDate(vacancyOpeningDate)}).`;
+            }
+
+            if (vacancyClosingDate && new Date(endDate) > new Date(vacancyClosingDate)) {
+                hasError = true;
+                errorMessage = `A data de encerramento deve ser igual ou anterior à data de fechamento da vaga (${formatDate(vacancyClosingDate)}).`;
+            }
+
+            // Validar se end_date é posterior ou igual a start_date
+            if (startDate && new Date(endDate) < new Date(startDate)) {
+                hasError = true;
+                errorMessage = 'A data de encerramento deve ser igual ou posterior à data de início.';
+            }
+
+            if (hasError) {
+                $('#end_date').addClass('is-invalid');
+                $('#end_date').after('<div class="invalid-feedback">' + errorMessage + '</div>');
+            }
+        }
+
+        // Função auxiliar para formatar data
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // Quando a vaga for selecionada ou alterada
+        $('#vacancy_id').on('change', function() {
+            const vacancyId = $(this).val();
+            updateDateRestrictions(vacancyId);
+            
+            // Limpar datas se necessário
+            if (vacancyId) {
+                validateEndDate();
+            } else {
+                $('#end_date').val('');
+                $('#start_date').val('');
             }
         });
+
+        // Validação quando as datas mudarem
+        $('#start_date, #end_date').on('change', function() {
+            validateEndDate();
+        });
+
+        // Inicializar restrições se já houver uma vaga selecionada (caso de erro de validação)
+        const initialVacancyId = $('#vacancy_id').val();
+        if (initialVacancyId) {
+            updateDateRestrictions(initialVacancyId);
+        }
     });
 </script>
 @endpush

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use App\Models\SelectionProcess;
 use App\Models\Vacancy;
 use App\Models\User;
@@ -119,6 +120,43 @@ class SelectionsController extends Controller
                 ->with('error', 'Apenas vagas abertas podem ter processos seletivos criados.');
         }
 
+        // Validar se as datas estão dentro do intervalo da vaga
+        if (!empty($validated['start_date']) && $vacancy->opening_date) {
+            $startDate = Carbon::parse($validated['start_date']);
+            if ($startDate->lt($vacancy->opening_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['start_date' => 'A data de início deve ser igual ou posterior à data de abertura da vaga (' . $vacancy->opening_date->format('d/m/Y') . ').']);
+            }
+        }
+
+        if (!empty($validated['start_date']) && $vacancy->closing_date) {
+            $startDate = Carbon::parse($validated['start_date']);
+            if ($startDate->gt($vacancy->closing_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['start_date' => 'A data de início deve ser igual ou anterior à data de fechamento da vaga (' . $vacancy->closing_date->format('d/m/Y') . ').']);
+            }
+        }
+
+        if (!empty($validated['end_date']) && $vacancy->opening_date) {
+            $endDate = Carbon::parse($validated['end_date']);
+            if ($endDate->lt($vacancy->opening_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['end_date' => 'A data de encerramento deve ser igual ou posterior à data de abertura da vaga (' . $vacancy->opening_date->format('d/m/Y') . ').']);
+            }
+        }
+
+        if (!empty($validated['end_date']) && $vacancy->closing_date) {
+            $endDate = Carbon::parse($validated['end_date']);
+            if ($endDate->gt($vacancy->closing_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['end_date' => 'A data de encerramento deve ser igual ou anterior à data de fechamento da vaga (' . $vacancy->closing_date->format('d/m/Y') . ').']);
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -199,6 +237,46 @@ class SelectionsController extends Controller
             'end_date.after_or_equal' => 'A data de encerramento deve ser igual ou posterior à data de início.',
             'approval_date.date' => 'A data de aprovação deve ser uma data válida.',
         ]);
+
+        // Buscar a vaga selecionada
+        $vacancy = Vacancy::findOrFail($validated['vacancy_id']);
+
+        // Validar se as datas estão dentro do intervalo da vaga
+        if (!empty($validated['start_date']) && $vacancy->opening_date) {
+            $startDate = Carbon::parse($validated['start_date']);
+            if ($startDate->lt($vacancy->opening_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['start_date' => 'A data de início deve ser igual ou posterior à data de abertura da vaga (' . $vacancy->opening_date->format('d/m/Y') . ').']);
+            }
+        }
+
+        if (!empty($validated['start_date']) && $vacancy->closing_date) {
+            $startDate = Carbon::parse($validated['start_date']);
+            if ($startDate->gt($vacancy->closing_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['start_date' => 'A data de início deve ser igual ou anterior à data de fechamento da vaga (' . $vacancy->closing_date->format('d/m/Y') . ').']);
+            }
+        }
+
+        if (!empty($validated['end_date']) && $vacancy->opening_date) {
+            $endDate = Carbon::parse($validated['end_date']);
+            if ($endDate->lt($vacancy->opening_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['end_date' => 'A data de encerramento deve ser igual ou posterior à data de abertura da vaga (' . $vacancy->opening_date->format('d/m/Y') . ').']);
+            }
+        }
+
+        if (!empty($validated['end_date']) && $vacancy->closing_date) {
+            $endDate = Carbon::parse($validated['end_date']);
+            if ($endDate->gt($vacancy->closing_date)) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['end_date' => 'A data de encerramento deve ser igual ou anterior à data de fechamento da vaga (' . $vacancy->closing_date->format('d/m/Y') . ').']);
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -327,6 +405,27 @@ class SelectionsController extends Controller
     public function getFinishedData(Request $request): JsonResponse
     {
         return $this->getDataByStatus($request, ['encerrado', 'congelado']);
+    }
+
+    /**
+     * Retorna os dados da vaga (opening_date e closing_date) para restringir datas do processo seletivo
+     */
+    public function getVacancyDates($id): JsonResponse
+    {
+        try {
+            $vacancy = Vacancy::whereNull('deleted_at')->findOrFail($id);
+            
+            return response()->json([
+                'success' => true,
+                'opening_date' => $vacancy->opening_date?->format('Y-m-d'),
+                'closing_date' => $vacancy->closing_date?->format('Y-m-d'),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vaga não encontrada.'
+            ], 404);
+        }
     }
 
     /**
