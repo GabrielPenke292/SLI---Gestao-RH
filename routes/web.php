@@ -68,7 +68,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/selections/in-progress/data', [SelectionsController::class, 'getInProgressData'])->name('selections.in-progress.data');
     Route::get('/selections/finished/data', [SelectionsController::class, 'getFinishedData'])->name('selections.finished.data');
     Route::get('/selections/vacancy/{id}/dates', [SelectionsController::class, 'getVacancyDates'])->name('selections.vacancy.dates');
-    
+    Route::get('/selections/candidates/search', [SelectionsController::class, 'searchCandidates'])->name('selections.candidates.search');
+    Route::post('/selections/{id}/attach-candidate', [SelectionsController::class, 'attachCandidate'])->name('selections.attach.candidate');
+    Route::post('/selections/{id}/detach-candidate', [SelectionsController::class, 'detachCandidate'])->name('selections.detach.candidate');
+    Route::get('/selections/{id}/candidates', [SelectionsController::class, 'getProcessCandidates'])->name('selections.candidates');
 
     // Candidate routes
     Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates.index');

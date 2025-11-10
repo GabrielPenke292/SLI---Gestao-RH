@@ -223,14 +223,66 @@
                                     </div>
                                 </div>
 
-                                <!-- Seção de Candidatos (preparada para implementação futura) -->
+                                <!-- Seção de Candidatos -->
+                                @if($process->status === 'em_andamento')
                                 <div class="candidates-section">
-                                    <h5 class="mb-3"><i class="fas fa-users me-2"></i>Candidatos</h5>
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle me-2"></i>
-                                        A gestão de candidatos será implementada em breve.
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Candidatos Vinculados</h5>
+                                        <button type="button" class="btn btn-primary btn-sm" id="btnSearchCandidate" data-bs-toggle="modal" data-bs-target="#searchCandidateModal">
+                                            <i class="fas fa-plus me-2"></i>Vincular Candidato
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="candidatesTableContainer">
+                                        <table class="table table-striped table-hover" id="candidatesTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nome</th>
+                                                    <th>E-mail</th>
+                                                    <th>Telefone</th>
+                                                    <th>Status</th>
+                                                    <th>Data de Vinculação</th>
+                                                    <th>Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse($process->candidates as $candidate)
+                                                    <tr data-candidate-id="{{ $candidate->candidate_id }}">
+                                                        <td>{{ $candidate->candidate_name }}</td>
+                                                        <td>{{ $candidate->candidate_email ?? '-' }}</td>
+                                                        <td>{{ $candidate->candidate_phone ?? '-' }}</td>
+                                                        <td>
+                                                            @php
+                                                                $status = $candidate->pivot->status ?? 'pendente';
+                                                                $badges = [
+                                                                    'pendente' => '<span class="badge bg-warning">Pendente</span>',
+                                                                    'aprovado' => '<span class="badge bg-success">Aprovado</span>',
+                                                                    'reprovado' => '<span class="badge bg-danger">Reprovado</span>',
+                                                                    'contratado' => '<span class="badge bg-info">Contratado</span>',
+                                                                ];
+                                                            @endphp
+                                                            {!! $badges[$status] ?? '<span class="badge bg-secondary">' . $status . '</span>' !!}
+                                                        </td>
+                                                        <td>{{ $candidate->pivot->created_at?->format('d/m/Y H:i') ?? '-' }}</td>
+                                                        <td>
+                                                            <a href="{{ route('candidates.show', $candidate->candidate_id) }}" target="_blank" class="btn btn-sm btn-info" title="Ver Perfil">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            <button type="button" class="btn btn-sm btn-danger btn-detach-candidate" data-candidate-id="{{ $candidate->candidate_id }}" title="Desvincular">
+                                                                <i class="fas fa-unlink"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="6" class="text-center text-muted">Nenhum candidato vinculado ainda.</td>
+                                                    </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
+                                @endif
 
                                 <div class="row mt-4">
                                     <div class="col-12 d-flex justify-content-end gap-2">
@@ -246,6 +298,40 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Busca de Candidatos -->
+<div class="modal fade" id="searchCandidateModal" tabindex="-1" aria-labelledby="searchCandidateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="searchCandidateModalLabel">
+                    <i class="fas fa-search me-2"></i>Buscar e Vincular Candidato
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="candidateSearch" class="form-label">Buscar Candidato</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="candidateSearch" placeholder="Digite o nome, e-mail, telefone, CPF ou busque no texto do currículo...">
+                        <button class="btn btn-primary" type="button" id="btnSearchCandidateAction">
+                            <i class="fas fa-search me-1"></i>Buscar
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="candidatesSearchResults" class="mt-3">
+                    <p class="text-muted text-center">Digite um termo de busca para encontrar candidatos.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
             </div>
         </div>
     </div>
@@ -353,6 +439,143 @@
             const date = new Date(dateString);
             return date.toLocaleDateString('pt-BR');
         }
+
+        // ========== FUNCIONALIDADE DE CANDIDATOS ==========
+        const processId = {{ $process->selection_process_id }};
+
+        // Buscar candidatos
+        function searchCandidates() {
+            const search = $('#candidateSearch').val().trim();
+            const resultsContainer = $('#candidatesSearchResults');
+            
+            resultsContainer.html('<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Buscando...</span></div></div>');
+            
+            $.ajax({
+                url: '{{ route("selections.candidates.search") }}',
+                method: 'GET',
+                data: {
+                    search: search,
+                    process_id: processId
+                },
+                success: function(response) {
+                    if (response.success && response.data.length > 0) {
+                        let html = '<div class="row g-3">';
+                        response.data.forEach(function(candidate) {
+                            html += `
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">${candidate.name}</h6>
+                                            <p class="card-text small mb-2">
+                                                <strong>E-mail:</strong> ${candidate.email}<br>
+                                                <strong>Telefone:</strong> ${candidate.phone}<br>
+                                                <strong>CPF:</strong> ${candidate.document}
+                                            </p>
+                                            ${candidate.experience !== '-' ? `<p class="card-text small"><strong>Experiência:</strong> ${candidate.experience}</p>` : ''}
+                                            ${candidate.education !== '-' ? `<p class="card-text small"><strong>Formação:</strong> ${candidate.education}</p>` : ''}
+                                            ${candidate.skills !== '-' ? `<p class="card-text small"><strong>Habilidades:</strong> ${candidate.skills}</p>` : ''}
+                                        </div>
+                                        <div class="card-footer bg-transparent">
+                                            ${candidate.has_pdf ? `<a href="${candidate.resume_pdf_url}" target="_blank" class="btn btn-sm btn-danger me-2"><i class="fas fa-file-pdf me-1"></i>Ver PDF</a>` : ''}
+                                            <button type="button" class="btn btn-sm btn-primary btn-attach-candidate" data-candidate-id="${candidate.id}">
+                                                <i class="fas fa-link me-1"></i>Vincular
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        resultsContainer.html(html);
+                    } else {
+                        resultsContainer.html('<p class="text-muted text-center">Nenhum candidato encontrado.</p>');
+                    }
+                },
+                error: function() {
+                    resultsContainer.html('<div class="alert alert-danger">Erro ao buscar candidatos. Tente novamente.</div>');
+                }
+            });
+        }
+
+        // Event listener para busca
+        $('#btnSearchCandidateAction').on('click', searchCandidates);
+        $('#candidateSearch').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                searchCandidates();
+            }
+        });
+
+        // Vincular candidato
+        $(document).on('click', '.btn-attach-candidate', function() {
+            const candidateId = $(this).data('candidate-id');
+            const button = $(this);
+            
+            button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Vinculando...');
+            
+            $.ajax({
+                url: '{{ route("selections.attach.candidate", ":id") }}'.replace(':id', processId),
+                method: 'POST',
+                data: {
+                    candidate_id: candidateId,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        location.reload();
+                    } else {
+                        alert(response.message || 'Erro ao vincular candidato.');
+                        button.prop('disabled', false).html('<i class="fas fa-link me-1"></i>Vincular');
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao vincular candidato.';
+                    alert(message);
+                    button.prop('disabled', false).html('<i class="fas fa-link me-1"></i>Vincular');
+                }
+            });
+        });
+
+        // Desvincular candidato
+        $(document).on('click', '.btn-detach-candidate', function() {
+            if (!confirm('Tem certeza que deseja desvincular este candidato do processo?')) {
+                return;
+            }
+            
+            const candidateId = $(this).data('candidate-id');
+            const button = $(this);
+            const row = button.closest('tr');
+            
+            button.prop('disabled', true);
+            
+            $.ajax({
+                url: '{{ route("selections.detach.candidate", ":id") }}'.replace(':id', processId),
+                method: 'POST',
+                data: {
+                    candidate_id: candidateId,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        row.fadeOut(300, function() {
+                            $(this).remove();
+                            if ($('#candidatesTable tbody tr').length === 0) {
+                                $('#candidatesTable tbody').html('<tr><td colspan="6" class="text-center text-muted">Nenhum candidato vinculado ainda.</td></tr>');
+                            }
+                        });
+                    } else {
+                        alert(response.message || 'Erro ao desvincular candidato.');
+                        button.prop('disabled', false);
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao desvincular candidato.';
+                    alert(message);
+                    button.prop('disabled', false);
+                }
+            });
+        });
 
         // Quando a vaga for selecionada ou alterada
         $('#vacancy_id').on('change', function() {

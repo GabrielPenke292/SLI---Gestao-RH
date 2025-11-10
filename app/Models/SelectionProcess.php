@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class SelectionProcess extends Model
 {
@@ -84,13 +85,13 @@ class SelectionProcess extends Model
     }
 
     /**
-     * Relacionamento: Um processo seletivo pode ter muitos candidatos
-     * (será implementado quando os candidatos forem criados)
+     * Relacionamento: Um processo seletivo pode ter muitos candidatos (many-to-many)
      */
-    // public function candidates(): HasMany
-    // {
-    //     return $this->hasMany(Candidate::class, 'selection_process_id', 'selection_process_id');
-    // }
+    public function candidates(): BelongsToMany
+    {
+        return $this->belongsToMany(Candidate::class, 'selection_process_candidates', 'selection_process_id', 'candidate_id')
+            ->withPivot('status', 'notes', 'created_at', 'created_by', 'updated_at', 'updated_by');
+    }
 
     /**
      * Scope para processos aguardando aprovação

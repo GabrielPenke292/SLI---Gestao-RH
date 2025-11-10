@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Candidate extends Model
 {
@@ -86,5 +87,14 @@ class Candidate extends Model
     public function getHasResumePdfAttribute(): bool
     {
         return !empty($this->candidate_resume_pdf);
+    }
+
+    /**
+     * Relacionamento: Um candidato pode estar em muitos processos seletivos (many-to-many)
+     */
+    public function selectionProcesses(): BelongsToMany
+    {
+        return $this->belongsToMany(SelectionProcess::class, 'selection_process_candidates', 'candidate_id', 'selection_process_id')
+            ->withPivot('status', 'notes', 'created_at', 'created_by', 'updated_at', 'updated_by');
     }
 }

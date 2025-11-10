@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use App\Models\SelectionProcess;
 use App\Models\Vacancy;
 use App\Models\User;
+use App\Models\Candidate;
 
 class SelectionsController extends Controller
 {
@@ -185,7 +186,7 @@ class SelectionsController extends Controller
      */
     public function edit($id)
     {
-        $process = SelectionProcess::with(['vacancy', 'approver'])
+        $process = SelectionProcess::with(['vacancy', 'approver', 'candidates'])
             ->whereNull('deleted_at')
             ->findOrFail($id);
 
@@ -462,6 +463,184 @@ class SelectionsController extends Controller
     public function getFinishedData(Request $request): JsonResponse
     {
         return $this->getDataByStatus($request, ['encerrado', 'congelado', 'reprovado']);
+    }
+
+    /**
+     * Buscar candidatos para vincular ao processo seletivo
+     */
+    public function searchCandidates(Request $request): JsonResponse
+    {
+        $search = $request->input('search', '');
+        $processId = $request->input('process_id');
+        
+        $query = Candidate::whereNull('deleted_at');
+        
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('candidate_name', 'like', "%{$search}%")
+                  ->orWhere('candidate_email', 'like', "%{$search}%")
+                  ->orWhere('candidate_phone', 'like', "%{$search}%")
+                  ->orWhere('candidate_document', 'like', "%{$search}%")
+                  ->orWhere('candidate_resume_text', 'like', "%{$search}%");
+            });
+        }
+        
+        // Excluir candidatos já vinculados a este processo
+        if ($processId) {
+            $process = SelectionProcess::find($processId);
+            if ($process) {
+                // Usar query direta na tabela pivot para evitar ambiguidade
+                $linkedCandidateIds = DB::table('selection_process_candidates')
+                    ->where('selection_process_id', $processId)
+                    ->pluck('candidate_id')
+                    ->toArray();
+                if (!empty($linkedCandidateIds)) {
+                    $query->whereNotIn('candidate_id', $linkedCandidateIds);
+                }
+            }
+        }
+        
+        $candidates = $query->orderBy('candidate_name')->limit(20)->get();
+        
+        $data = $candidates->map(function($candidate) {
+            return [
+                'id' => $candidate->candidate_id,
+                'name' => $candidate->candidate_name,
+                'email' => $candidate->candidate_email ?? '-',
+                'phone' => $candidate->candidate_phone ?? '-',
+                'document' => $candidate->candidate_document ?? '-',
+                'experience' => $candidate->candidate_experience ? substr($candidate->candidate_experience, 0, 200) . '...' : '-',
+                'education' => $candidate->candidate_education ? substr($candidate->candidate_education, 0, 200) . '...' : '-',
+                'skills' => $candidate->candidate_skills ?? '-',
+                'resume_pdf_url' => $candidate->resume_pdf_url,
+                'has_pdf' => $candidate->has_resume_pdf,
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+    }
+
+    /**
+     * Vincular candidato ao processo seletivo
+     */
+    public function attachCandidate(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        if ($process->status !== 'em_andamento') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apenas processos em andamento podem ter candidatos vinculados.'
+            ], 400);
+        }
+        
+        $validated = $request->validate([
+            'candidate_id' => 'required|exists:candidates,candidate_id',
+            'notes' => 'nullable|string',
+        ], [
+            'candidate_id.required' => 'O candidato é obrigatório.',
+            'candidate_id.exists' => 'O candidato selecionado é inválido.',
+        ]);
+        
+        // Verificar se o candidato já está vinculado (usando query direta para evitar ambiguidade)
+        $alreadyLinked = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $validated['candidate_id'])
+            ->exists();
+        
+        if ($alreadyLinked) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este candidato já está vinculado a este processo.'
+            ], 400);
+        }
+        
+        try {
+            DB::beginTransaction();
+            
+            $process->candidates()->attach($validated['candidate_id'], [
+                'status' => 'pendente',
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => Auth::user()->user_name ?? 'system',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidato vinculado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao vincular candidato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Desvincular candidato do processo seletivo
+     */
+    public function detachCandidate(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        $validated = $request->validate([
+            'candidate_id' => 'required|exists:candidates,candidate_id',
+        ], [
+            'candidate_id.required' => 'O candidato é obrigatório.',
+            'candidate_id.exists' => 'O candidato selecionado é inválido.',
+        ]);
+        
+        try {
+            DB::beginTransaction();
+            
+            $process->candidates()->detach($validated['candidate_id']);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidato desvinculado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao desvincular candidato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Retornar candidatos vinculados ao processo
+     */
+    public function getProcessCandidates($id): JsonResponse
+    {
+        $process = SelectionProcess::with('candidates')->whereNull('deleted_at')->findOrFail($id);
+        
+        $candidates = $process->candidates->map(function($candidate) {
+            return [
+                'id' => $candidate->candidate_id,
+                'name' => $candidate->candidate_name,
+                'email' => $candidate->candidate_email ?? '-',
+                'phone' => $candidate->candidate_phone ?? '-',
+                'status' => $candidate->pivot->status ?? 'pendente',
+                'notes' => $candidate->pivot->notes ?? null,
+                'linked_at' => $candidate->pivot->created_at?->format('d/m/Y H:i') ?? '-',
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $candidates
+        ]);
     }
 
     /**
