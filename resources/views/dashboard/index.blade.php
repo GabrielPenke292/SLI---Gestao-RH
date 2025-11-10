@@ -85,8 +85,14 @@
                         </div>
 
                         <div class="col-md-3 mb-3 p-3">
+                            <a href="{{ route('candidates.index') }}" class="btn btn-outline-primary w-100 p-5">
+                                <i class="fas fa-user-plus me-2"></i>Candidatos
+                            </a>
+                        </div>
+
+                        <div class="col-md-3 mb-3 p-3">
                             <a href="#" class="btn btn-outline-primary w-100 p-5">
-                                <i class="fas fa-handshake me-2"></i>Propostas
+                                <i class="fas fa-handshake me-2"></i>Negociações
                             </a>
                         </div>
 

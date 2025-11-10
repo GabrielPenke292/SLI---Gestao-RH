@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CandidatesController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
@@ -68,6 +69,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/selections/finished/data', [SelectionsController::class, 'getFinishedData'])->name('selections.finished.data');
     Route::get('/selections/vacancy/{id}/dates', [SelectionsController::class, 'getVacancyDates'])->name('selections.vacancy.dates');
     
+
+    // Candidate routes
+    Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates.index');
+
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');
