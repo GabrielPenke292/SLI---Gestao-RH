@@ -81,9 +81,10 @@ class Candidate extends Model
 
     /**
      * Acessor para verificar se tem PDF
+     * Retorna true se houver um caminho cadastrado no banco
      */
     public function getHasResumePdfAttribute(): bool
     {
-        return !empty($this->candidate_resume_pdf) && file_exists(storage_path('app/public/' . $this->candidate_resume_pdf));
+        return !empty($this->candidate_resume_pdf);
     }
 }

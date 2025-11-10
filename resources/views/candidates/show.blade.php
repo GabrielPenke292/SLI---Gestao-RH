@@ -5,12 +5,6 @@
     .info-card {
         border-left: 4px solid #0d6efd;
     }
-    .pdf-viewer {
-        width: 100%;
-        height: 600px;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-    }
 </style>
 @endpush
 
@@ -137,33 +131,27 @@
                 @endif
 
                 <!-- Currículo PDF -->
-                @if($candidate->has_resume_pdf)
+                @if(!empty($candidate->candidate_resume_pdf))
                 <div class="col-md-12 mb-4">
                     <div class="card shadow-sm">
                         <div class="card-header bg-danger text-white">
-                            <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>Currículo em PDF</h5>
+                            <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>Currículo</h5>
                         </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <a href="{{ $candidate->resume_pdf_url }}" target="_blank" class="btn btn-danger">
-                                    <i class="fas fa-download me-2"></i>Baixar PDF
-                                </a>
-                            </div>
-                            <iframe src="{{ $candidate->resume_pdf_url }}" class="pdf-viewer"></iframe>
+                        <div class="card-body text-center">
+                            <a href="{{ $candidate->resume_pdf_url }}" target="_blank" class="btn btn-danger btn-lg">
+                                <i class="fas fa-file-pdf me-2"></i>Visualizar Currículo em PDF
+                            </a>
                         </div>
                     </div>
                 </div>
-                @endif
-
-                <!-- Texto do Currículo -->
-                @if($candidate->candidate_resume_text)
+                @else
                 <div class="col-md-12 mb-4">
                     <div class="card shadow-sm">
                         <div class="card-header bg-secondary text-white">
-                            <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Texto do Currículo</h5>
+                            <h5 class="mb-0"><i class="fas fa-file-pdf me-2"></i>Currículo</h5>
                         </div>
                         <div class="card-body">
-                            <div class="whitespace-pre-line" style="white-space: pre-wrap;">{{ $candidate->candidate_resume_text }}</div>
+                            <p class="text-muted mb-0">Nenhum currículo em PDF cadastrado.</p>
                         </div>
                     </div>
                 </div>

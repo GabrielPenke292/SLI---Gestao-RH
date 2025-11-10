@@ -62,9 +62,14 @@ class CandidatesController extends Controller
             // Upload do PDF se fornecido
             if ($request->hasFile('candidate_resume_pdf')) {
                 $file = $request->file('candidate_resume_pdf');
-                $fileName = 'resumes/' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('public', $fileName);
-                $validated['candidate_resume_pdf'] = $fileName;
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $filePath = 'resumes/' . $fileName;
+                
+                // Garantir que a pasta existe e salvar o arquivo
+                Storage::disk('public')->makeDirectory('resumes');
+                Storage::disk('public')->putFileAs('resumes', $file, $fileName);
+                
+                $validated['candidate_resume_pdf'] = $filePath;
             }
 
             $validated['created_by'] = Auth::user()->user_name ?? 'system';
@@ -140,14 +145,19 @@ class CandidatesController extends Controller
             // Upload do novo PDF se fornecido
             if ($request->hasFile('candidate_resume_pdf')) {
                 // Deletar PDF antigo se existir
-                if ($candidate->candidate_resume_pdf && Storage::exists('public/' . $candidate->candidate_resume_pdf)) {
-                    Storage::delete('public/' . $candidate->candidate_resume_pdf);
+                if ($candidate->candidate_resume_pdf && Storage::disk('public')->exists($candidate->candidate_resume_pdf)) {
+                    Storage::disk('public')->delete($candidate->candidate_resume_pdf);
                 }
 
                 $file = $request->file('candidate_resume_pdf');
-                $fileName = 'resumes/' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('public', $fileName);
-                $validated['candidate_resume_pdf'] = $fileName;
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $filePath = 'resumes/' . $fileName;
+                
+                // Garantir que a pasta existe e salvar o arquivo
+                Storage::disk('public')->makeDirectory('resumes');
+                Storage::disk('public')->putFileAs('resumes', $file, $fileName);
+                
+                $validated['candidate_resume_pdf'] = $filePath;
             }
 
             $validated['updated_by'] = Auth::user()->user_name ?? 'system';
