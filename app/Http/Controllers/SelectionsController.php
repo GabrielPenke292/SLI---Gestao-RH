@@ -315,13 +315,48 @@ class SelectionsController extends Controller
                 $steps = json_decode($validated['steps'], true);
                 if (is_array($steps)) {
                     // Filtrar etapas vazias e remover duplicatas
-                    $validated['steps'] = array_values(array_unique(array_filter($steps, function($step) {
+                    $newSteps = array_values(array_unique(array_filter($steps, function($step) {
                         return !empty(trim($step));
                     })));
+                    
+                    // Verificar se alguma etapa que está sendo removida tem candidatos
+                    $oldSteps = $process->steps ?? [];
+                    $removedSteps = array_diff($oldSteps, $newSteps);
+                    
+                    if (!empty($removedSteps)) {
+                        foreach ($removedSteps as $removedStep) {
+                            $candidatesCount = DB::table('selection_process_candidates')
+                                ->where('selection_process_id', $id)
+                                ->where('step', $removedStep)
+                                ->count();
+                            
+                            if ($candidatesCount > 0) {
+                                return back()
+                                    ->withInput()
+                                    ->with('error', "Não é possível excluir a etapa \"{$removedStep}\" pois há {$candidatesCount} candidato(s) vinculado(s) a ela. Por favor, mova ou desvincule os candidatos antes de excluir a etapa.");
+                            }
+                        }
+                    }
+                    
+                    $validated['steps'] = $newSteps;
                 } else {
                     $validated['steps'] = null;
                 }
             } else {
+                // Se está removendo todas as etapas, verificar se há candidatos em alguma
+                $oldSteps = $process->steps ?? [];
+                if (!empty($oldSteps)) {
+                    $totalCandidates = DB::table('selection_process_candidates')
+                        ->where('selection_process_id', $id)
+                        ->count();
+                    
+                    if ($totalCandidates > 0) {
+                        return back()
+                            ->withInput()
+                            ->with('error', "Não é possível remover todas as etapas pois há {$totalCandidates} candidato(s) vinculado(s) ao processo. Por favor, mova ou desvincule os candidatos antes de remover as etapas.");
+                    }
+                }
+                
                 $validated['steps'] = null;
             }
 
@@ -813,6 +848,33 @@ class SelectionsController extends Controller
                 'message' => 'Erro ao desvincular candidato: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Verificar se há candidatos em uma etapa específica
+     */
+    public function checkStepHasCandidates(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        $validated = $request->validate([
+            'step' => 'required|string|max:100',
+        ], [
+            'step.required' => 'A etapa é obrigatória.',
+            'step.string' => 'A etapa deve ser um texto válido.',
+            'step.max' => 'A etapa não pode ter mais de 100 caracteres.',
+        ]);
+        
+        $candidatesCount = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('step', $validated['step'])
+            ->count();
+        
+        return response()->json([
+            'success' => true,
+            'has_candidates' => $candidatesCount > 0,
+            'candidates_count' => $candidatesCount
+        ]);
     }
 
     /**

@@ -543,9 +543,30 @@
             // Event listener para remover
             badge.find('.btn-close').on('click', function() {
                 const stepToRemove = $(this).closest('.badge').data('step');
-                steps = steps.filter(s => s !== stepToRemove);
-                updateStepsInput();
-                $(this).closest('.badge').remove();
+                const closeButton = $(this);
+                
+                // Verificar se há candidatos nesta etapa antes de remover
+                $.ajax({
+                    url: '{{ route("selections.check.step.candidates", $process->selection_process_id) }}',
+                    method: 'GET',
+                    data: {
+                        step: stepToRemove
+                    },
+                    success: function(response) {
+                        if (response.success && response.has_candidates) {
+                            alert(`Não é possível excluir a etapa "${stepToRemove}" pois há ${response.candidates_count} candidato(s) vinculado(s) a ela. Por favor, mova ou desvincule os candidatos antes de excluir a etapa.`);
+                            return;
+                        }
+                        
+                        // Se não há candidatos, permitir remoção
+                        steps = steps.filter(s => s !== stepToRemove);
+                        updateStepsInput();
+                        closeButton.closest('.badge').remove();
+                    },
+                    error: function() {
+                        alert('Erro ao verificar candidatos na etapa. Tente novamente.');
+                    }
+                });
             });
         }
         
