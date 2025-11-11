@@ -130,111 +130,66 @@ class CandidatesController extends Controller
             ], 404);
         }
         
-        // Construir timeline com eventos do processo
+        // Construir timeline - apenas evento de vinculação
         $timeline = [];
         
-        // Evento: Criação do processo
-        if ($process->created_at) {
+        // Evento: Vinculação do candidato (buscar do log de atividades)
+        $linkLog = \App\Models\ActivityLog::where('log_type', 'candidate_linked')
+            ->where('entity_type', 'Candidate')
+            ->where('entity_id', $candidateId)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->first(function($log) use ($processId) {
+                $metadata = $log->metadata ?? [];
+                return isset($metadata['process_id']) && $metadata['process_id'] == $processId;
+            });
+        
+        if ($linkLog) {
             $timeline[] = [
-                'date' => $process->created_at->format('d/m/Y H:i'),
-                'title' => 'Processo Criado',
-                'description' => 'Processo seletivo foi criado',
-                'icon' => 'fa-plus-circle',
-                'color' => 'primary',
+                'date' => $linkLog->created_at->format('d/m/Y H:i'),
+                'title' => 'Candidato Vinculado',
+                'description' => $linkLog->description ?? 'Você foi vinculado a este processo seletivo',
+                'icon' => 'fa-user-plus',
+                'color' => 'success',
                 'status' => 'completed'
             ];
-        }
-        
-        // Evento: Vinculação do candidato
-        if ($process->pivot->created_at) {
+        } elseif ($process->pivot->created_at) {
+            // Fallback para usar a data do pivot se não houver log
             $timeline[] = [
                 'date' => $process->pivot->created_at->format('d/m/Y H:i'),
                 'title' => 'Candidato Vinculado',
                 'description' => 'Você foi vinculado a este processo seletivo',
                 'icon' => 'fa-user-plus',
-                'color' => 'info',
-                'status' => 'completed'
-            ];
-        }
-        
-        // Evento: Aguardando aprovação
-        if ($process->status === 'aguardando_aprovacao') {
-            $timeline[] = [
-                'date' => $process->created_at?->format('d/m/Y H:i') ?? '-',
-                'title' => 'Aguardando Aprovação',
-                'description' => 'Processo aguardando aprovação do diretor',
-                'icon' => 'fa-clock',
-                'color' => 'warning',
-                'status' => 'current'
-            ];
-        }
-        
-        // Evento: Aprovação
-        if ($process->approval_date) {
-            $timeline[] = [
-                'date' => $process->approval_date->format('d/m/Y'),
-                'title' => 'Processo Aprovado',
-                'description' => 'Processo aprovado por ' . ($process->approver->user_name ?? 'N/A'),
-                'icon' => 'fa-check-circle',
                 'color' => 'success',
                 'status' => 'completed'
             ];
         }
         
-        // Evento: Reprovação
-        if ($process->status === 'reprovado') {
-            $timeline[] = [
-                'date' => $process->approval_date?->format('d/m/Y') ?? $process->updated_at?->format('d/m/Y H:i') ?? '-',
-                'title' => 'Processo Reprovado',
-                'description' => $process->approval_notes ?? 'Processo foi reprovado',
-                'icon' => 'fa-times-circle',
-                'color' => 'danger',
-                'status' => 'completed'
-            ];
-        }
+        // Eventos: Observações adicionadas (buscar do log de atividades)
+        $noteLogs = \App\Models\ActivityLog::where('log_type', 'candidate_note_added')
+            ->where('entity_type', 'Candidate')
+            ->where('entity_id', $candidateId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->filter(function($log) use ($processId) {
+                // Filtrar por process_id no metadata
+                $metadata = $log->metadata ?? [];
+                return isset($metadata['process_id']) && $metadata['process_id'] == $processId;
+            });
         
-        // Evento: Início do processo
-        if ($process->start_date && $process->status === 'em_andamento') {
-            $timeline[] = [
-                'date' => $process->start_date->format('d/m/Y'),
-                'title' => 'Processo Iniciado',
-                'description' => 'Processo seletivo em andamento',
-                'icon' => 'fa-play-circle',
-                'color' => 'success',
-                'status' => $process->status === 'em_andamento' ? 'current' : 'completed'
-            ];
-        }
-        
-        // Evento: Status do candidato no processo
-        $candidateStatus = $process->pivot->status ?? 'pendente';
-        $statusLabels = [
-            'pendente' => ['Pendente', 'Aguardando avaliação'],
-            'aprovado' => ['Aprovado', 'Você foi aprovado neste processo'],
-            'reprovado' => ['Reprovado', 'Você foi reprovado neste processo'],
-            'contratado' => ['Contratado', 'Você foi contratado!']
-        ];
-        
-        if (isset($statusLabels[$candidateStatus])) {
-            $timeline[] = [
-                'date' => $process->pivot->updated_at?->format('d/m/Y H:i') ?? $process->pivot->created_at?->format('d/m/Y H:i') ?? '-',
-                'title' => 'Status: ' . $statusLabels[$candidateStatus][0],
-                'description' => $statusLabels[$candidateStatus][1],
-                'icon' => $candidateStatus === 'aprovado' || $candidateStatus === 'contratado' ? 'fa-check' : ($candidateStatus === 'reprovado' ? 'fa-times' : 'fa-hourglass-half'),
-                'color' => $candidateStatus === 'aprovado' || $candidateStatus === 'contratado' ? 'success' : ($candidateStatus === 'reprovado' ? 'danger' : 'warning'),
-                'status' => 'current'
-            ];
-        }
-        
-        // Evento: Encerramento
-        if ($process->end_date || in_array($process->status, ['encerrado', 'congelado'])) {
-            $timeline[] = [
-                'date' => $process->end_date?->format('d/m/Y') ?? $process->updated_at?->format('d/m/Y H:i') ?? '-',
-                'title' => 'Processo Encerrado',
-                'description' => $process->status === 'congelado' ? 'Processo foi congelado' : 'Processo seletivo encerrado',
-                'icon' => 'fa-stop-circle',
-                'color' => 'secondary',
-                'status' => 'completed'
-            ];
+        foreach ($noteLogs as $noteLog) {
+            $metadata = $noteLog->metadata ?? [];
+            $note = $metadata['note'] ?? '';
+            if (!empty($note)) {
+                $timeline[] = [
+                    'date' => $noteLog->created_at->format('d/m/Y H:i'),
+                    'title' => 'Observação Adicionada',
+                    'description' => $note,
+                    'icon' => 'fa-sticky-note',
+                    'color' => 'info',
+                    'status' => 'completed'
+                ];
+            }
         }
         
         // Ordenar timeline por data

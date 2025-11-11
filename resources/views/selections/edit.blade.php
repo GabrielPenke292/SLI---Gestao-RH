@@ -268,6 +268,9 @@
                                                             <a href="{{ route('candidates.show', $candidate->candidate_id) }}" target="_blank" class="btn btn-sm btn-info" title="Ver Perfil">
                                                                 <i class="fas fa-eye"></i>
                                                             </a>
+                                                            <button type="button" class="btn btn-sm btn-warning btn-add-note" data-candidate-id="{{ $candidate->candidate_id }}" data-candidate-name="{{ $candidate->candidate_name }}" data-current-notes="{{ $candidate->pivot->notes ?? '' }}" title="Adicionar Observação">
+                                                                <i class="fas fa-sticky-note"></i>
+                                                            </button>
                                                             <button type="button" class="btn btn-sm btn-danger btn-detach-candidate" data-candidate-id="{{ $candidate->candidate_id }}" title="Desvincular">
                                                                 <i class="fas fa-unlink"></i>
                                                             </button>
@@ -298,6 +301,39 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Adicionar Observação -->
+<div class="modal fade" id="addNoteModal" tabindex="-1" aria-labelledby="addNoteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="addNoteModalLabel">
+                    <i class="fas fa-sticky-note me-2"></i>Adicionar Observação
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="noteCandidateName" class="form-label">Candidato:</label>
+                    <input type="text" class="form-control" id="noteCandidateName" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="candidateNote" class="form-label">Observação:</label>
+                    <textarea class="form-control" id="candidateNote" rows="5" placeholder="Digite a observação sobre o candidato neste processo seletivo..."></textarea>
+                    <small class="form-text text-muted">Máximo de 5000 caracteres.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" id="btnSaveNote">
+                    <i class="fas fa-save me-1"></i>Salvar Observação
+                </button>
             </div>
         </div>
     </div>
@@ -533,6 +569,67 @@
                     const message = xhr.responseJSON?.message || 'Erro ao vincular candidato.';
                     alert(message);
                     button.prop('disabled', false).html('<i class="fas fa-link me-1"></i>Vincular');
+                }
+            });
+        });
+
+        // Adicionar observação
+        let currentCandidateIdForNote = null;
+        
+        $(document).on('click', '.btn-add-note', function() {
+            const candidateId = $(this).data('candidate-id');
+            const candidateName = $(this).data('candidate-name');
+            const currentNotes = $(this).data('current-notes') || '';
+            
+            currentCandidateIdForNote = candidateId;
+            $('#noteCandidateName').val(candidateName);
+            $('#candidateNote').val(currentNotes);
+            
+            $('#addNoteModal').modal('show');
+        });
+        
+        $('#btnSaveNote').on('click', function() {
+            if (!currentCandidateIdForNote) {
+                return;
+            }
+            
+            const notes = $('#candidateNote').val().trim();
+            
+            if (!notes) {
+                alert('Por favor, digite uma observação.');
+                return;
+            }
+            
+            if (notes.length > 5000) {
+                alert('A observação não pode ter mais de 5000 caracteres.');
+                return;
+            }
+            
+            const button = $(this);
+            button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Salvando...');
+            
+            $.ajax({
+                url: '{{ route("selections.add.note", ":id") }}'.replace(':id', processId),
+                method: 'POST',
+                data: {
+                    candidate_id: currentCandidateIdForNote,
+                    notes: notes,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        $('#addNoteModal').modal('hide');
+                        location.reload();
+                    } else {
+                        alert(response.message || 'Erro ao salvar observação.');
+                        button.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Salvar Observação');
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao salvar observação.';
+                    alert(message);
+                    button.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Salvar Observação');
                 }
             });
         });

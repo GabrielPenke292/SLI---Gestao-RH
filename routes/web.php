@@ -71,6 +71,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/selections/candidates/search', [SelectionsController::class, 'searchCandidates'])->name('selections.candidates.search');
     Route::post('/selections/{id}/attach-candidate', [SelectionsController::class, 'attachCandidate'])->name('selections.attach.candidate');
     Route::post('/selections/{id}/detach-candidate', [SelectionsController::class, 'detachCandidate'])->name('selections.detach.candidate');
+    Route::post('/selections/{id}/add-note', [SelectionsController::class, 'addCandidateNote'])->name('selections.add.note');
     Route::get('/selections/{id}/candidates', [SelectionsController::class, 'getProcessCandidates'])->name('selections.candidates');
 
     // Candidate routes

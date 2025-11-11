@@ -11,6 +11,7 @@ use App\Models\SelectionProcess;
 use App\Models\Vacancy;
 use App\Models\User;
 use App\Models\Candidate;
+use App\Helpers\ActivityLogger;
 
 class SelectionsController extends Controller
 {
@@ -569,6 +570,13 @@ class SelectionsController extends Controller
                 'updated_at' => now(),
             ]);
             
+            // Registrar log de atividade
+            ActivityLogger::logCandidateLinked(
+                $validated['candidate_id'],
+                $id,
+                $validated['notes'] ?? null
+            );
+            
             DB::commit();
             
             return response()->json([
@@ -603,6 +611,12 @@ class SelectionsController extends Controller
             
             $process->candidates()->detach($validated['candidate_id']);
             
+            // Registrar log de atividade
+            ActivityLogger::logCandidateUnlinked(
+                $validated['candidate_id'],
+                $id
+            );
+            
             DB::commit();
             
             return response()->json([
@@ -614,6 +628,71 @@ class SelectionsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao desvincular candidato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Adicionar/atualizar observação sobre candidato no processo
+     */
+    public function addCandidateNote(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        $validated = $request->validate([
+            'candidate_id' => 'required|exists:candidates,candidate_id',
+            'notes' => 'required|string|max:5000',
+        ], [
+            'candidate_id.required' => 'O candidato é obrigatório.',
+            'candidate_id.exists' => 'O candidato selecionado é inválido.',
+            'notes.required' => 'A observação é obrigatória.',
+            'notes.max' => 'A observação não pode ter mais de 5000 caracteres.',
+        ]);
+        
+        // Verificar se o candidato está vinculado ao processo
+        $pivot = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $validated['candidate_id'])
+            ->first();
+        
+        if (!$pivot) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato não está vinculado a este processo.'
+            ], 404);
+        }
+        
+        try {
+            DB::beginTransaction();
+            
+            // Atualizar observação no pivot
+            DB::table('selection_process_candidates')
+                ->where('selection_process_id', $id)
+                ->where('candidate_id', $validated['candidate_id'])
+                ->update([
+                    'notes' => $validated['notes'],
+                    'updated_by' => Auth::user()->user_name ?? 'system',
+                    'updated_at' => now(),
+                ]);
+            
+            // Registrar log de atividade
+            ActivityLogger::logCandidateNoteAdded(
+                $validated['candidate_id'],
+                $id,
+                $validated['notes']
+            );
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Observação adicionada com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao adicionar observação: ' . $e->getMessage()
             ], 500);
         }
     }
