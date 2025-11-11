@@ -167,6 +167,27 @@
                                     </div>
 
                                     <div class="col-md-12 mb-3">
+                                        <label for="process_steps" class="form-label">Etapas do Processo</label>
+                                        <div class="input-group">
+                                            <input type="text" 
+                                                   class="form-control" 
+                                                   id="process_steps_input" 
+                                                   placeholder="Digite o nome da etapa e pressione Enter...">
+                                            <button type="button" class="btn btn-outline-secondary" id="btnAddStep">
+                                                <i class="fas fa-plus"></i> Adicionar
+                                            </button>
+                                        </div>
+                                        <small class="form-text text-muted">Adicione as etapas do processo seletivo (ex: Triagem, Entrevista, Teste Técnico, etc.)</small>
+                                        <div id="stepsContainer" class="mt-2 d-flex flex-wrap gap-2">
+                                            <!-- Badges das etapas serão inseridos aqui -->
+                                        </div>
+                                        <input type="hidden" name="steps" id="stepsInput" value="{{ old('steps', '[]') }}">
+                                        @error('steps')
+                                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-12 mb-3">
                                         <label for="observations" class="form-label">Observações</label>
                                         <textarea class="form-control @error('observations') is-invalid @enderror" 
                                                   id="observations" 
@@ -205,6 +226,91 @@
     $(document).ready(function() {
         let vacancyOpeningDate = null;
         let vacancyClosingDate = null;
+        
+        // ========== GERENCIAMENTO DE ETAPAS ==========
+        let steps = [];
+        
+        // Carregar etapas do old() se houver
+        @if(old('steps'))
+            try {
+                const oldSteps = @json(old('steps'));
+                if (Array.isArray(oldSteps)) {
+                    oldSteps.forEach(function(step) {
+                        if (typeof step === 'string') {
+                            addStepBadge(step);
+                        }
+                    });
+                } else if (typeof oldSteps === 'string') {
+                    const parsed = JSON.parse(oldSteps);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(function(step) {
+                            addStepBadge(step);
+                        });
+                    }
+                }
+            } catch(e) {
+                console.error('Erro ao carregar etapas:', e);
+            }
+        @endif
+        
+        // Função para adicionar badge de etapa
+        function addStepBadge(stepName) {
+            if (!stepName || stepName.trim() === '') {
+                return;
+            }
+            
+            stepName = stepName.trim();
+            
+            // Verificar se já existe
+            if (steps.includes(stepName)) {
+                return;
+            }
+            
+            steps.push(stepName);
+            updateStepsInput();
+            
+            const badge = $(`
+                <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-step="${stepName}">
+                    ${stepName}
+                    <button type="button" class="btn-close btn-close-white btn-close-sm" aria-label="Remover"></button>
+                </span>
+            `);
+            
+            $('#stepsContainer').append(badge);
+            
+            // Event listener para remover
+            badge.find('.btn-close').on('click', function() {
+                const stepToRemove = $(this).closest('.badge').data('step');
+                steps = steps.filter(s => s !== stepToRemove);
+                updateStepsInput();
+                $(this).closest('.badge').remove();
+            });
+        }
+        
+        // Função para atualizar o input hidden
+        function updateStepsInput() {
+            $('#stepsInput').val(JSON.stringify(steps));
+        }
+        
+        // Adicionar etapa ao pressionar Enter ou clicar no botão
+        function addStep() {
+            const stepName = $('#process_steps_input').val().trim();
+            if (stepName) {
+                addStepBadge(stepName);
+                $('#process_steps_input').val('').focus();
+            }
+        }
+        
+        $('#process_steps_input').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                addStep();
+            }
+        });
+        
+        $('#btnAddStep').on('click', function() {
+            addStep();
+        });
 
         // Função para atualizar as restrições de data baseadas na vaga selecionada
         function updateDateRestrictions(vacancyId) {

@@ -99,6 +99,7 @@ class SelectionsController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'observations' => 'nullable|string',
+            'steps' => 'nullable|string',
         ], [
             'process_number.required' => 'O número do processo é obrigatório.',
             'process_number.unique' => 'Este número de processo já está em uso.',
@@ -163,6 +164,21 @@ class SelectionsController extends Controller
         try {
             DB::beginTransaction();
 
+            // Processar etapas (JSON string para array)
+            if (!empty($validated['steps'])) {
+                $steps = json_decode($validated['steps'], true);
+                if (is_array($steps)) {
+                    // Filtrar etapas vazias e remover duplicatas
+                    $validated['steps'] = array_values(array_unique(array_filter($steps, function($step) {
+                        return !empty(trim($step));
+                    })));
+                } else {
+                    $validated['steps'] = null;
+                }
+            } else {
+                $validated['steps'] = null;
+            }
+
             $validated['status'] = 'aguardando_aprovacao';
             $validated['created_by'] = Auth::user()->user_name ?? 'system';
             $validated['created_at'] = now();
@@ -221,6 +237,7 @@ class SelectionsController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'observations' => 'nullable|string',
+            'steps' => 'nullable|string',
             'approval_notes' => 'nullable|string',
             'approval_date' => 'nullable|date',
         ], [
@@ -291,6 +308,21 @@ class SelectionsController extends Controller
                 if (empty($validated['approver_id'])) {
                     $validated['approver_id'] = Auth::user()->users_id;
                 }
+            }
+
+            // Processar etapas (JSON string para array)
+            if (!empty($validated['steps'])) {
+                $steps = json_decode($validated['steps'], true);
+                if (is_array($steps)) {
+                    // Filtrar etapas vazias e remover duplicatas
+                    $validated['steps'] = array_values(array_unique(array_filter($steps, function($step) {
+                        return !empty(trim($step));
+                    })));
+                } else {
+                    $validated['steps'] = null;
+                }
+            } else {
+                $validated['steps'] = null;
             }
 
             $validated['updated_by'] = Auth::user()->user_name ?? 'system';

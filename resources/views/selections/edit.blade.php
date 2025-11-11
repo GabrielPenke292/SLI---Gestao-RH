@@ -199,6 +199,27 @@
                                     </div>
 
                                     <div class="col-md-12 mb-3">
+                                        <label for="process_steps" class="form-label">Etapas do Processo</label>
+                                        <div class="input-group">
+                                            <input type="text" 
+                                                   class="form-control" 
+                                                   id="process_steps_input" 
+                                                   placeholder="Digite o nome da etapa e pressione Enter...">
+                                            <button type="button" class="btn btn-outline-secondary" id="btnAddStep">
+                                                <i class="fas fa-plus"></i> Adicionar
+                                            </button>
+                                        </div>
+                                        <small class="form-text text-muted">Adicione as etapas do processo seletivo (ex: Triagem, Entrevista, Teste Técnico, etc.)</small>
+                                        <div id="stepsContainer" class="mt-2 d-flex flex-wrap gap-2">
+                                            <!-- Badges das etapas serão inseridos aqui -->
+                                        </div>
+                                        <input type="hidden" name="steps" id="stepsInput" value="{{ old('steps', $process->steps ? json_encode($process->steps) : '[]') }}">
+                                        @error('steps')
+                                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-12 mb-3">
                                         <label for="observations" class="form-label">Observações</label>
                                         <textarea class="form-control @error('observations') is-invalid @enderror" 
                                                   id="observations" 
@@ -222,6 +243,44 @@
                                         @enderror
                                     </div>
                                 </div>
+
+                                <!-- Seção de Etapas (Tabs) -->
+                                @if($process->steps && count($process->steps) > 0)
+                                <div class="steps-section mt-4 mb-4">
+                                    <h5 class="mb-3"><i class="fas fa-list-ol me-2"></i>Etapas do Processo</h5>
+                                    <ul class="nav nav-tabs" id="processStepsTabs" role="tablist">
+                                        @foreach($process->steps as $index => $step)
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link {{ $index === 0 ? 'active' : '' }}" 
+                                                        id="step-{{ $index }}-tab" 
+                                                        data-bs-toggle="tab" 
+                                                        data-bs-target="#step-{{ $index }}" 
+                                                        type="button" 
+                                                        role="tab" 
+                                                        aria-controls="step-{{ $index }}" 
+                                                        aria-selected="{{ $index === 0 ? 'true' : 'false' }}">
+                                                    {{ $step }}
+                                                </button>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    <div class="tab-content" id="processStepsTabContent">
+                                        @foreach($process->steps as $index => $step)
+                                            <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}" 
+                                                 id="step-{{ $index }}" 
+                                                 role="tabpanel" 
+                                                 aria-labelledby="step-{{ $index }}-tab">
+                                                <div class="card border-top-0 rounded-top-0">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">{{ $step }}</h6>
+                                                        <p class="text-muted">Conteúdo da etapa será implementado em breve.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @endif
 
                                 <!-- Seção de Candidatos -->
                                 @if($process->status === 'em_andamento')
@@ -380,6 +439,95 @@
     $(document).ready(function() {
         let vacancyOpeningDate = null;
         let vacancyClosingDate = null;
+        
+        // ========== GERENCIAMENTO DE ETAPAS ==========
+        let steps = [];
+        
+        // Carregar etapas existentes ou do old()
+        @if(old('steps'))
+            try {
+                const oldSteps = @json(old('steps'));
+                if (Array.isArray(oldSteps)) {
+                    oldSteps.forEach(function(step) {
+                        if (typeof step === 'string') {
+                            addStepBadge(step);
+                        }
+                    });
+                } else if (typeof oldSteps === 'string') {
+                    const parsed = JSON.parse(oldSteps);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(function(step) {
+                            addStepBadge(step);
+                        });
+                    }
+                }
+            } catch(e) {
+                console.error('Erro ao carregar etapas:', e);
+            }
+        @elseif($process->steps && count($process->steps) > 0)
+            @foreach($process->steps as $step)
+                addStepBadge('{{ addslashes($step) }}');
+            @endforeach
+        @endif
+        
+        // Função para adicionar badge de etapa
+        function addStepBadge(stepName) {
+            if (!stepName || stepName.trim() === '') {
+                return;
+            }
+            
+            stepName = stepName.trim();
+            
+            // Verificar se já existe
+            if (steps.includes(stepName)) {
+                return;
+            }
+            
+            steps.push(stepName);
+            updateStepsInput();
+            
+            const badge = $(`
+                <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-step="${stepName.replace(/"/g, '&quot;')}">
+                    ${stepName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                    <button type="button" class="btn-close btn-close-white btn-close-sm" aria-label="Remover"></button>
+                </span>
+            `);
+            
+            $('#stepsContainer').append(badge);
+            
+            // Event listener para remover
+            badge.find('.btn-close').on('click', function() {
+                const stepToRemove = $(this).closest('.badge').data('step');
+                steps = steps.filter(s => s !== stepToRemove);
+                updateStepsInput();
+                $(this).closest('.badge').remove();
+            });
+        }
+        
+        // Função para atualizar o input hidden
+        function updateStepsInput() {
+            $('#stepsInput').val(JSON.stringify(steps));
+        }
+        
+        // Adicionar etapa ao pressionar Enter ou clicar no botão
+        function addStep() {
+            const stepName = $('#process_steps_input').val().trim();
+            if (stepName) {
+                addStepBadge(stepName);
+                $('#process_steps_input').val('').focus();
+            }
+        }
+        
+        $('#process_steps_input').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                addStep();
+            }
+        });
+        
+        $('#btnAddStep').on('click', function() {
+            addStep();
+        });
 
         // Função para atualizar as restrições de data baseadas na vaga selecionada
         function updateDateRestrictions(vacancyId) {
