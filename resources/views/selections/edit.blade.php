@@ -21,6 +21,29 @@
         margin-top: 2rem;
         padding-top: 2rem;
     }
+    
+    /* Estilos para drag and drop de etapas */
+    #stepsContainer .badge {
+        user-select: none;
+        transition: opacity 0.2s;
+    }
+    
+    #stepsContainer .badge:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+    
+    #stepsContainer .badge.sortable-ghost {
+        opacity: 0.4;
+    }
+    
+    #stepsContainer .badge.sortable-drag {
+        opacity: 0.8;
+    }
+    
+    .opacity-50 {
+        opacity: 0.5 !important;
+    }
 </style>
 @endpush
 
@@ -213,6 +236,9 @@
                                         <div id="stepsContainer" class="mt-2 d-flex flex-wrap gap-2">
                                             <!-- Badges das etapas serão inseridos aqui -->
                                         </div>
+                                        <small class="form-text text-muted d-block mt-1">
+                                            <i class="fas fa-info-circle me-1"></i>Você pode arrastar os badges para reordenar as etapas.
+                                        </small>
                                         <input type="hidden" name="steps" id="stepsInput" value="{{ old('steps', $process->steps ? json_encode($process->steps) : '[]') }}">
                                         @error('steps')
                                             <div class="invalid-feedback d-block">{{ $message }}</div>
@@ -278,9 +304,14 @@
                                                         <div class="candidates-section">
                                                             <div class="d-flex justify-content-between align-items-center mb-3">
                                                                 <h6 class="mb-0"><i class="fas fa-users me-2"></i>Candidatos da Etapa: {{ $step }}</h6>
-                                                                <button type="button" class="btn btn-primary btn-sm btn-link-candidate-to-step" data-step="{{ $step }}" data-bs-toggle="modal" data-bs-target="#searchCandidateModal">
-                                                                    <i class="fas fa-plus me-2"></i>Vincular Candidato
-                                                                </button>
+                                                                <div class="btn-group">
+                                                                    <button type="button" class="btn btn-success btn-sm btn-manage-interactions" data-step="{{ $step }}" data-process-id="{{ $process->selection_process_id }}">
+                                                                        <i class="fas fa-comments me-2"></i>Gerenciar Interações
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-primary btn-sm btn-link-candidate-to-step" data-step="{{ $step }}" data-bs-toggle="modal" data-bs-target="#searchCandidateModal">
+                                                                        <i class="fas fa-plus me-2"></i>Vincular Candidato
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                             
                                                             <div class="candidates-table-container" data-step="{{ $step }}">
@@ -477,6 +508,143 @@
     </div>
 </div>
 
+<!-- Modal de Gerenciar Interações da Etapa -->
+<div class="modal fade" id="manageInteractionsModal" tabindex="-1" aria-labelledby="manageInteractionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen-lg-down modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="manageInteractionsModalLabel">
+                    <i class="fas fa-comments me-2"></i>Gerenciar Interações da Etapa
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Informações do Processo e Etapa -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <i class="fas fa-user me-2"></i>Dados do Candidato
+                            </div>
+                            <div class="card-body">
+                                <div id="interactionCandidateInfo">
+                                    <p class="text-muted mb-0">Selecione um candidato</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white">
+                                <i class="fas fa-briefcase me-2"></i>Dados do Processo e da Vaga
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-1"><strong>Processo:</strong> {{ $process->process_number }}</p>
+                                <p class="mb-1"><strong>Vaga:</strong> {{ $process->vacancy->vacancy_title ?? 'N/A' }}</p>
+                                <p class="mb-0"><strong>Etapa:</strong> <span id="currentStepName"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seletor de Candidato -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <label for="interactionCandidateSelect" class="form-label"><strong>Selecione o Candidato:</strong></label>
+                        <select class="form-select" id="interactionCandidateSelect">
+                            <option value="">Selecione um candidato...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Cadastrar Interação -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Cadastrar:</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <button type="button" class="btn btn-primary w-100 btn-add-question">
+                                    <i class="fas fa-question-circle me-2"></i>Pergunta
+                                </button>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <button type="button" class="btn btn-warning w-100 btn-add-observation">
+                                    <i class="fas fa-sticky-note me-2"></i>Observação
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Formulário de Pergunta -->
+                        <div id="questionForm" style="display: none;" class="mt-3">
+                            <div class="card border-primary">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="fas fa-question-circle me-2"></i>Pergunta</h6>
+                                    <div class="mb-3">
+                                        <label for="interactionQuestion" class="form-label">Pergunta:</label>
+                                        <textarea class="form-control" id="interactionQuestion" rows="2" placeholder="Digite a pergunta..."></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="interactionAnswer" class="form-label">Resposta:</label>
+                                        <textarea class="form-control" id="interactionAnswer" rows="3" placeholder="Digite a resposta do candidato..."></textarea>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-primary btn-save-interaction" data-type="pergunta">
+                                            <i class="fas fa-save me-1"></i>Salvar Pergunta
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-cancel-interaction">
+                                            <i class="fas fa-times me-1"></i>Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formulário de Observação -->
+                        <div id="observationForm" style="display: none;" class="mt-3">
+                            <div class="card border-warning">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="fas fa-sticky-note me-2"></i>Observação</h6>
+                                    <div class="mb-3">
+                                        <label for="interactionObservation" class="form-label">Observação:</label>
+                                        <textarea class="form-control" id="interactionObservation" rows="4" placeholder="Digite a observação..."></textarea>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-warning btn-save-interaction" data-type="observacao">
+                                            <i class="fas fa-save me-1"></i>Salvar Observação
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-cancel-interaction">
+                                            <i class="fas fa-times me-1"></i>Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Interações -->
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>Interações Registradas</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="interactionsList">
+                            <p class="text-muted text-center">Selecione um candidato para ver as interações.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -532,16 +700,23 @@
             updateStepsInput();
             
             const badge = $(`
-                <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-step="${stepName.replace(/"/g, '&quot;')}">
+                <span class="badge bg-primary d-inline-flex align-items-center gap-1" data-step="${stepName.replace(/"/g, '&quot;')}" style="cursor: move;">
+                    <i class="fas fa-grip-vertical me-1" style="opacity: 0.7;"></i>
                     ${stepName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-                    <button type="button" class="btn-close btn-close-white btn-close-sm" aria-label="Remover"></button>
+                    <button type="button" class="btn-close btn-close-white btn-close-sm" aria-label="Remover" style="cursor: pointer;"></button>
                 </span>
             `);
             
             $('#stepsContainer').append(badge);
             
+            // Reinicializar SortableJS após adicionar novo badge
+            if (typeof Sortable !== 'undefined') {
+                initStepsSortable();
+            }
+            
             // Event listener para remover
-            badge.find('.btn-close').on('click', function() {
+            badge.find('.btn-close').on('click', function(e) {
+                e.stopPropagation(); // Prevenir que o drag seja ativado
                 const stepToRemove = $(this).closest('.badge').data('step');
                 const closeButton = $(this);
                 
@@ -1015,6 +1190,390 @@
         if (initialVacancyId) {
             updateDateRestrictions(initialVacancyId);
         }
+        
+        // ========== DRAG AND DROP PARA REORDENAR ETAPAS ==========
+        let stepsSortable = null;
+        
+        // Carregar SortableJS
+        function loadSortableJS() {
+            return new Promise(function(resolve, reject) {
+                if (typeof Sortable !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js';
+                script.onload = function() {
+                    resolve();
+                };
+                script.onerror = function() {
+                    reject('Erro ao carregar SortableJS');
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        function initStepsSortable() {
+            const stepsContainer = document.getElementById('stepsContainer');
+            if (stepsContainer && typeof Sortable !== 'undefined') {
+                // Destruir instância anterior se existir
+                if (stepsSortable) {
+                    stepsSortable.destroy();
+                }
+                
+                stepsSortable = new Sortable(stepsContainer, {
+                    animation: 150,
+                    filter: '.btn-close', // Não permitir arrastar quando clicar no botão de fechar
+                    preventOnFilter: true, // Prevenir comportamento padrão quando clicar no filtro
+                    ghostClass: 'opacity-50',
+                    dragClass: 'sortable-drag',
+                    onEnd: function(evt) {
+                        // Atualizar o array steps baseado na nova ordem
+                        steps = [];
+                        $('#stepsContainer .badge').each(function() {
+                            const stepName = $(this).data('step');
+                            if (stepName) {
+                                steps.push(stepName);
+                            }
+                        });
+                        updateStepsInput();
+                    }
+                });
+            }
+        }
+        
+        // Carregar e inicializar SortableJS
+        loadSortableJS().then(function() {
+            initStepsSortable();
+        }).catch(function(error) {
+            console.error('Erro ao carregar SortableJS:', error);
+        });
+
+        // ========== GERENCIAMENTO DE INTERAÇÕES ==========
+        let currentStepForInteractions = '';
+        let currentProcessIdForInteractions = {{ $process->selection_process_id }};
+        let currentCandidateIdForInteractions = null;
+
+        // Abrir modal de interações
+        $(document).on('click', '.btn-manage-interactions', function() {
+            currentStepForInteractions = $(this).data('step');
+            currentProcessIdForInteractions = $(this).data('process-id');
+            
+            $('#currentStepName').text(currentStepForInteractions);
+            $('#interactionCandidateSelect').val('').trigger('change');
+            $('#interactionCandidateInfo').html('<p class="text-muted mb-0">Selecione um candidato</p>');
+            $('#interactionsList').html('<p class="text-muted text-center">Selecione um candidato para ver as interações.</p>');
+            $('#questionForm, #observationForm').hide();
+            
+            // Carregar candidatos da etapa
+            loadCandidatesForInteractions();
+            
+            $('#manageInteractionsModal').modal('show');
+        });
+
+        // Carregar candidatos da etapa no select
+        function loadCandidatesForInteractions() {
+            $.ajax({
+                url: '{{ route("selections.candidates", $process->selection_process_id) }}',
+                method: 'GET',
+                success: function(response) {
+                    if (response.success && response.data) {
+                        let candidates = response.data.filter(c => c.step === currentStepForInteractions);
+                        let select = $('#interactionCandidateSelect');
+                        select.empty().append('<option value="">Selecione um candidato...</option>');
+                        
+                        candidates.forEach(function(candidate) {
+                            if (candidate.candidate_id && candidate.candidate_name) {
+                                select.append(`<option value="${candidate.candidate_id}">${candidate.candidate_name}</option>`);
+                            }
+                        });
+                    }
+                },
+                error: function() {
+                    alert('Erro ao carregar candidatos.');
+                }
+            });
+        }
+
+        // Quando um candidato é selecionado
+        $('#interactionCandidateSelect').on('change', function() {
+            currentCandidateIdForInteractions = $(this).val();
+            
+            if (currentCandidateIdForInteractions) {
+                // Carregar dados do candidato
+                $.ajax({
+                    url: '{{ route("selections.candidates", $process->selection_process_id) }}',
+                    method: 'GET',
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            let candidate = response.data.find(c => c.candidate_id == currentCandidateIdForInteractions);
+                            if (candidate && candidate.candidate_name) {
+                                let age = 'N/A';
+                                if (candidate.candidate_birth_date) {
+                                    let birthDate = new Date(candidate.candidate_birth_date);
+                                    let today = new Date();
+                                    age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
+                                }
+                                
+                                $('#interactionCandidateInfo').html(`
+                                    <p class="mb-1"><strong>${candidate.candidate_name}</strong></p>
+                                    <p class="mb-0 text-muted">${age !== 'N/A' ? age + ' anos' : 'Idade não informada'}</p>
+                                `);
+                            } else {
+                                $('#interactionCandidateInfo').html('<p class="text-muted mb-0">Dados do candidato não encontrados.</p>');
+                            }
+                        }
+                    }
+                });
+                
+                // Carregar interações
+                loadInteractions();
+            } else {
+                $('#interactionCandidateInfo').html('<p class="text-muted mb-0">Selecione um candidato</p>');
+                $('#interactionsList').html('<p class="text-muted text-center">Selecione um candidato para ver as interações.</p>');
+            }
+        });
+
+        // Carregar interações
+        function loadInteractions() {
+            if (!currentCandidateIdForInteractions || !currentStepForInteractions) return;
+            
+            $.ajax({
+                url: '{{ route("selections.step.interactions", $process->selection_process_id) }}',
+                method: 'GET',
+                data: {
+                    step: currentStepForInteractions,
+                    candidate_id: currentCandidateIdForInteractions
+                },
+                success: function(response) {
+                    if (response.success && response.data) {
+                        renderInteractions(response.data);
+                    } else {
+                        $('#interactionsList').html('<p class="text-muted text-center">Nenhuma interação registrada ainda.</p>');
+                    }
+                },
+                error: function() {
+                    $('#interactionsList').html('<p class="text-danger text-center">Erro ao carregar interações.</p>');
+                }
+            });
+        }
+
+        // Renderizar interações
+        function renderInteractions(interactions) {
+            if (!interactions || interactions.length === 0) {
+                $('#interactionsList').html('<p class="text-muted text-center">Nenhuma interação registrada ainda.</p>');
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            
+            interactions.forEach(function(interaction, index) {
+                if (interaction.interaction_type === 'pergunta') {
+                    html += `
+                        <div class="list-group-item mb-3 border-start border-primary border-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <span class="badge bg-primary me-2">① Pergunta</span>
+                                    <small class="text-muted">${interaction.created_at} - ${interaction.created_by}</small>
+                                </div>
+                                <button class="btn btn-sm btn-danger btn-delete-interaction" data-interaction-id="${interaction.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Pergunta:</strong>
+                                <p class="mb-0">"${interaction.question || ''}"</p>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Resposta:</strong>
+                                ${interaction.answer ? 
+                                    `<p class="mb-0">"${interaction.answer}"</p>` : 
+                                    `<textarea class="form-control mt-2 answer-input" rows="2" placeholder="Digite a resposta..." data-interaction-id="${interaction.id}"></textarea>
+                                     <button class="btn btn-sm btn-primary mt-2 btn-save-answer" data-interaction-id="${interaction.id}">
+                                         <i class="fas fa-save me-1"></i>Salvar Resposta
+                                     </button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                } else if (interaction.interaction_type === 'observacao') {
+                    html += `
+                        <div class="list-group-item mb-3 border-start border-warning border-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <span class="badge bg-warning me-2">② Observação</span>
+                                    <small class="text-muted">${interaction.created_at} - ${interaction.created_by}</small>
+                                </div>
+                                <button class="btn btn-sm btn-danger btn-delete-interaction" data-interaction-id="${interaction.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <strong>Observação:</strong>
+                                <p class="mb-0">"${interaction.observation || ''}"</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            html += '</div>';
+            $('#interactionsList').html(html);
+        }
+
+        // Mostrar formulário de pergunta
+        $('.btn-add-question').on('click', function() {
+            if (!currentCandidateIdForInteractions) {
+                alert('Por favor, selecione um candidato primeiro.');
+                return;
+            }
+            $('#questionForm').show();
+            $('#observationForm').hide();
+            $('#interactionQuestion, #interactionAnswer').val('');
+        });
+
+        // Mostrar formulário de observação
+        $('.btn-add-observation').on('click', function() {
+            if (!currentCandidateIdForInteractions) {
+                alert('Por favor, selecione um candidato primeiro.');
+                return;
+            }
+            $('#observationForm').show();
+            $('#questionForm').hide();
+            $('#interactionObservation').val('');
+        });
+
+        // Cancelar formulário
+        $('.btn-cancel-interaction').on('click', function() {
+            $('#questionForm, #observationForm').hide();
+            $('#interactionQuestion, #interactionAnswer, #interactionObservation').val('');
+        });
+
+        // Salvar interação
+        $(document).on('click', '.btn-save-interaction', function() {
+            if (!currentCandidateIdForInteractions) {
+                alert('Por favor, selecione um candidato primeiro.');
+                return;
+            }
+            
+            let type = $(this).data('type');
+            let data = {
+                candidate_id: currentCandidateIdForInteractions,
+                step: currentStepForInteractions,
+                interaction_type: type
+            };
+            
+            if (type === 'pergunta') {
+                let question = $('#interactionQuestion').val().trim();
+                if (!question) {
+                    alert('Por favor, digite a pergunta.');
+                    return;
+                }
+                data.question = question;
+                data.answer = $('#interactionAnswer').val().trim();
+            } else if (type === 'observacao') {
+                let observation = $('#interactionObservation').val().trim();
+                if (!observation) {
+                    alert('Por favor, digite a observação.');
+                    return;
+                }
+                data.observation = observation;
+            }
+            
+            $.ajax({
+                url: '{{ route("selections.step.interactions.store", $process->selection_process_id) }}',
+                method: 'POST',
+                data: data,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        $('#questionForm, #observationForm').hide();
+                        $('#interactionQuestion, #interactionAnswer, #interactionObservation').val('');
+                        loadInteractions();
+                    } else {
+                        alert('Erro: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    let message = 'Erro ao salvar interação.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    alert(message);
+                }
+            });
+        });
+
+        // Salvar resposta
+        $(document).on('click', '.btn-save-answer', function() {
+            let interactionId = $(this).data('interaction-id');
+            let answer = $(this).closest('.list-group-item').find('.answer-input').val().trim();
+            
+            if (!answer) {
+                alert('Por favor, digite a resposta.');
+                return;
+            }
+            
+            $.ajax({
+                url: `{{ route("selections.step.interactions.update", [$process->selection_process_id, ":id"]) }}`.replace(':id', interactionId),
+                method: 'PUT',
+                data: {
+                    answer: answer
+                },
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    if (response.success) {
+                        loadInteractions();
+                    } else {
+                        alert('Erro: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    let message = 'Erro ao salvar resposta.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    alert(message);
+                }
+            });
+        });
+
+        // Deletar interação
+        $(document).on('click', '.btn-delete-interaction', function() {
+            if (!confirm('Tem certeza que deseja excluir esta interação?')) {
+                return;
+            }
+            
+            let interactionId = $(this).data('interaction-id');
+            
+            $.ajax({
+                url: `{{ route("selections.step.interactions.delete", [$process->selection_process_id, ":id"]) }}`.replace(':id', interactionId),
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    if (response.success) {
+                        loadInteractions();
+                    } else {
+                        alert('Erro: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    let message = 'Erro ao excluir interação.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    alert(message);
+                }
+            });
+        });
     });
 </script>
 @endpush

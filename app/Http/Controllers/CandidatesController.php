@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Candidate;
+use App\Models\StepInteraction;
 
 class CandidatesController extends Controller
 {
@@ -144,7 +145,7 @@ class CandidatesController extends Controller
                 return isset($metadata['process_id']) && $metadata['process_id'] == $processId;
             });
         
-        if ($linkLog) {
+        if ($linkLog && $linkLog->created_at) {
             $timeline[] = [
                 'date' => $linkLog->created_at->format('d/m/Y H:i'),
                 'title' => 'Candidato Vinculado',
@@ -178,6 +179,10 @@ class CandidatesController extends Controller
             });
         
         foreach ($noteLogs as $noteLog) {
+            if (!$noteLog->created_at) {
+                continue; // Pular logs sem data
+            }
+            
             $metadata = $noteLog->metadata ?? [];
             $note = $metadata['note'] ?? '';
             if (!empty($note)) {
@@ -205,6 +210,10 @@ class CandidatesController extends Controller
             });
         
         foreach ($stepMoveLogs as $moveLog) {
+            if (!$moveLog->created_at) {
+                continue; // Pular logs sem data
+            }
+            
             $metadata = $moveLog->metadata ?? [];
             $fromStep = $metadata['from_step'] ?? 'Etapa anterior';
             $toStep = $metadata['to_step'] ?? 'Etapa seguinte';
@@ -227,6 +236,66 @@ class CandidatesController extends Controller
                 'color' => $color,
                 'status' => 'completed'
             ];
+        }
+        
+        // Eventos: Interações (perguntas e observações) das etapas
+        $interactions = StepInteraction::where('selection_process_id', $processId)
+            ->where('candidate_id', $candidateId)
+            ->orderBy('created_at', 'asc')
+            ->get();
+        
+        foreach ($interactions as $interaction) {
+            // Verificar se created_at existe antes de formatar
+            // Como o modelo tem $timestamps = false, precisamos verificar se o campo existe e não é null
+            $createdAt = $interaction->created_at;
+            
+            // Se created_at for null, tentar usar updated_at como fallback
+            if (!$createdAt && $interaction->updated_at) {
+                $createdAt = $interaction->updated_at;
+            }
+            
+            // Se ainda não tiver data, pular esta interação
+            if (!$createdAt) {
+                continue;
+            }
+            
+            // Garantir que é um objeto Carbon/DateTime
+            if (is_string($createdAt)) {
+                try {
+                    $createdAt = \Carbon\Carbon::parse($createdAt);
+                } catch (\Exception $e) {
+                    continue; // Pular se não conseguir fazer parse
+                }
+            }
+            
+            if ($interaction->interaction_type === 'pergunta') {
+                $description = "<strong>Etapa:</strong> {$interaction->step}<br>";
+                $description .= "<strong>Pergunta:</strong> \"{$interaction->question}\"";
+                if ($interaction->answer) {
+                    $description .= "<br><strong>Resposta:</strong> \"{$interaction->answer}\"";
+                }
+                
+                $timeline[] = [
+                    'date' => $createdAt->format('d/m/Y H:i'),
+                    'title' => 'Pergunta Registrada',
+                    'description' => $description,
+                    'icon' => 'fa-question-circle',
+                    'color' => 'primary',
+                    'status' => 'completed'
+                ];
+            } elseif ($interaction->interaction_type === 'observacao') {
+                $description = "<strong>Etapa:</strong> {$interaction->step}<br>";
+                $description .= "<strong>Observação:</strong> \"{$interaction->observation}\"";
+                
+                $timeline[] = [
+                    'date' => $createdAt->format('d/m/Y H:i'),
+                    'title' => 'Observação Registrada',
+                    'description' => $description,
+                    'icon' => 'fa-sticky-note',
+                    'color' => 'warning',
+                    'status' => 'completed'
+                ];
+            }
         }
         
         // Ordenar timeline por data

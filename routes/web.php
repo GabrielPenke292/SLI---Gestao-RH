@@ -75,6 +75,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/selections/{id}/add-note', [SelectionsController::class, 'addCandidateNote'])->name('selections.add.note');
     Route::get('/selections/{id}/candidates', [SelectionsController::class, 'getProcessCandidates'])->name('selections.candidates');
     Route::get('/selections/{id}/check-step-candidates', [SelectionsController::class, 'checkStepHasCandidates'])->name('selections.check.step.candidates');
+    Route::get('/selections/{id}/step-interactions', [SelectionsController::class, 'getStepInteractions'])->name('selections.step.interactions');
+    Route::post('/selections/{id}/step-interactions', [SelectionsController::class, 'storeStepInteraction'])->name('selections.step.interactions.store');
+    Route::put('/selections/{id}/step-interactions/{interactionId}', [SelectionsController::class, 'updateStepInteraction'])->name('selections.step.interactions.update');
+    Route::delete('/selections/{id}/step-interactions/{interactionId}', [SelectionsController::class, 'deleteStepInteraction'])->name('selections.step.interactions.delete');
 
     // Candidate routes
     Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates.index');

@@ -11,6 +11,7 @@ use App\Models\SelectionProcess;
 use App\Models\Vacancy;
 use App\Models\User;
 use App\Models\Candidate;
+use App\Models\StepInteraction;
 use App\Helpers\ActivityLogger;
 
 class SelectionsController extends Controller
@@ -951,10 +952,11 @@ class SelectionsController extends Controller
         
         $candidates = $process->candidates->map(function($candidate) {
             return [
-                'id' => $candidate->candidate_id,
-                'name' => $candidate->candidate_name,
-                'email' => $candidate->candidate_email ?? '-',
-                'phone' => $candidate->candidate_phone ?? '-',
+                'candidate_id' => $candidate->candidate_id,
+                'candidate_name' => $candidate->candidate_name,
+                'candidate_email' => $candidate->candidate_email ?? '-',
+                'candidate_phone' => $candidate->candidate_phone ?? '-',
+                'candidate_birth_date' => $candidate->candidate_birth_date?->format('Y-m-d') ?? null,
                 'step' => $candidate->pivot->step ?? '-',
                 'status' => $candidate->pivot->status ?? 'pendente',
                 'notes' => $candidate->pivot->notes ?? null,
@@ -1098,5 +1100,216 @@ class SelectionsController extends Controller
             'recordsFiltered' => $filteredCount,
             'data' => $data
         ]);
+    }
+
+    /**
+     * Listar interações de uma etapa específica
+     */
+    public function getStepInteractions(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        $validated = $request->validate([
+            'step' => 'required|string|max:100',
+            'candidate_id' => 'nullable|exists:candidates,candidate_id',
+        ], [
+            'step.required' => 'A etapa é obrigatória.',
+            'candidate_id.exists' => 'O candidato selecionado é inválido.',
+        ]);
+        
+        $query = StepInteraction::where('selection_process_id', $id)
+            ->where('step', $validated['step'])
+            ->with(['candidate', 'selectionProcess']);
+        
+        if (!empty($validated['candidate_id'])) {
+            $query->where('candidate_id', $validated['candidate_id']);
+        }
+        
+        $interactions = $query->orderBy('created_at', 'desc')->get();
+        
+        $data = $interactions->map(function($interaction) {
+            return [
+                'id' => $interaction->step_interaction_id,
+                'candidate_id' => $interaction->candidate_id,
+                'candidate_name' => $interaction->candidate->candidate_name ?? 'N/A',
+                'interaction_type' => $interaction->interaction_type,
+                'question' => $interaction->question,
+                'answer' => $interaction->answer,
+                'observation' => $interaction->observation,
+                'created_at' => $interaction->created_at?->format('d/m/Y H:i'),
+                'created_by' => $interaction->created_by ?? 'system',
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+    }
+
+    /**
+     * Criar nova interação (pergunta ou observação)
+     */
+    public function storeStepInteraction(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        if ($process->status !== 'em_andamento') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apenas processos em andamento podem ter interações registradas.'
+            ], 400);
+        }
+        
+        $validated = $request->validate([
+            'candidate_id' => 'required|exists:candidates,candidate_id',
+            'step' => 'required|string|max:100',
+            'interaction_type' => 'required|in:pergunta,observacao',
+            'question' => 'required_if:interaction_type,pergunta|nullable|string|max:5000',
+            'answer' => 'nullable|string|max:5000',
+            'observation' => 'required_if:interaction_type,observacao|nullable|string|max:5000',
+        ], [
+            'candidate_id.required' => 'O candidato é obrigatório.',
+            'candidate_id.exists' => 'O candidato selecionado é inválido.',
+            'step.required' => 'A etapa é obrigatória.',
+            'interaction_type.required' => 'O tipo de interação é obrigatório.',
+            'interaction_type.in' => 'O tipo deve ser: pergunta ou observacao.',
+            'question.required_if' => 'A pergunta é obrigatória quando o tipo é pergunta.',
+            'observation.required_if' => 'A observação é obrigatória quando o tipo é observacao.',
+        ]);
+        
+        // Verificar se a etapa existe no processo
+        $processSteps = $process->steps ?? [];
+        if (!in_array($validated['step'], $processSteps)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A etapa selecionada não existe neste processo seletivo.'
+            ], 400);
+        }
+        
+        // Verificar se o candidato está vinculado a esta etapa
+        $pivot = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $validated['candidate_id'])
+            ->where('step', $validated['step'])
+            ->first();
+        
+        if (!$pivot) {
+            return response()->json([
+                'success' => false,
+                'message' => 'O candidato não está vinculado a esta etapa do processo.'
+            ], 404);
+        }
+        
+        try {
+            DB::beginTransaction();
+            
+            $interaction = StepInteraction::create([
+                'selection_process_id' => $id,
+                'candidate_id' => $validated['candidate_id'],
+                'step' => $validated['step'],
+                'interaction_type' => $validated['interaction_type'],
+                'question' => $validated['question'] ?? null,
+                'answer' => $validated['answer'] ?? null,
+                'observation' => $validated['observation'] ?? null,
+                'created_by' => Auth::user()->user_name ?? 'system',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Interação registrada com sucesso!',
+                'data' => [
+                    'id' => $interaction->step_interaction_id,
+                    'candidate_id' => $interaction->candidate_id,
+                    'candidate_name' => $interaction->candidate->candidate_name ?? 'N/A',
+                    'interaction_type' => $interaction->interaction_type,
+                    'question' => $interaction->question,
+                    'answer' => $interaction->answer,
+                    'observation' => $interaction->observation,
+                    'created_at' => $interaction->created_at?->format('d/m/Y H:i'),
+                    'created_by' => $interaction->created_by ?? 'system',
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao registrar interação: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Atualizar interação (principalmente para adicionar resposta)
+     */
+    public function updateStepInteraction(Request $request, $id, $interactionId): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        $interaction = StepInteraction::where('selection_process_id', $id)
+            ->findOrFail($interactionId);
+        
+        $validated = $request->validate([
+            'answer' => 'nullable|string|max:5000',
+            'observation' => 'nullable|string|max:5000',
+        ], [
+            'answer.max' => 'A resposta não pode ter mais de 5000 caracteres.',
+            'observation.max' => 'A observação não pode ter mais de 5000 caracteres.',
+        ]);
+        
+        try {
+            DB::beginTransaction();
+            
+            if (isset($validated['answer'])) {
+                $interaction->answer = $validated['answer'];
+            }
+            if (isset($validated['observation'])) {
+                $interaction->observation = $validated['observation'];
+            }
+            
+            $interaction->updated_by = Auth::user()->user_name ?? 'system';
+            $interaction->updated_at = now();
+            $interaction->save();
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Interação atualizada com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao atualizar interação: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Excluir interação
+     */
+    public function deleteStepInteraction(Request $request, $id, $interactionId): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        $interaction = StepInteraction::where('selection_process_id', $id)
+            ->findOrFail($interactionId);
+        
+        try {
+            $interaction->delete();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Interação excluída com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao excluir interação: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
