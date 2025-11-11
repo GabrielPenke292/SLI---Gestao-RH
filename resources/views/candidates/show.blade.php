@@ -195,6 +195,34 @@
                             <div id="timelineContainer" class="mt-4">
                                 <p class="text-muted text-center">Selecione um processo seletivo para visualizar a timeline.</p>
                             </div>
+                            
+                            <!-- Tabs para separar Atividades e Interações -->
+                            <div id="timelineTabsContainer" style="display: none;">
+                                <ul class="nav nav-tabs mb-3" id="timelineTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="activities-tab" data-bs-toggle="tab" data-bs-target="#activities" type="button" role="tab" aria-controls="activities" aria-selected="true">
+                                            <i class="fas fa-tasks me-2"></i>Atividades
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="interactions-tab" data-bs-toggle="tab" data-bs-target="#interactions" type="button" role="tab" aria-controls="interactions" aria-selected="false">
+                                            <i class="fas fa-comments me-2"></i>Interações
+                                        </button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content" id="timelineTabContent">
+                                    <div class="tab-pane fade show active" id="activities" role="tabpanel" aria-labelledby="activities-tab">
+                                        <div id="activitiesTimeline" class="timeline">
+                                            <!-- Atividades serão renderizadas aqui -->
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="interactions" role="tabpanel" aria-labelledby="interactions-tab">
+                                        <div id="interactionsTimeline" class="timeline">
+                                            <!-- Interações serão renderizadas aqui -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -309,6 +337,7 @@
             
             if (!processId) {
                 container.html('<p class="text-muted text-center">Selecione um processo seletivo para visualizar a timeline.</p>');
+                $('#timelineTabsContainer').hide();
                 return;
             }
             
@@ -322,34 +351,75 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        let html = `
+                        // Mostrar informações do processo
+                        let processInfo = `
                             <div class="mb-3">
                                 <h6><strong>Processo:</strong> ${response.process.number}</h6>
                                 <p class="mb-0"><strong>Vaga:</strong> ${response.process.vacancy}</p>
                             </div>
-                            <div class="timeline">
                         `;
                         
-                        response.timeline.forEach(function(item, index) {
-                            html += `
-                                <div class="timeline-item ${item.status}">
-                                    <div class="timeline-content ${item.color}">
-                                        <div class="d-flex justify-content-between align-items-start mb-2">
-                                            <h6 class="mb-0">
-                                                <i class="fas ${item.icon} me-2"></i>${item.title}
-                                            </h6>
-                                            <small class="text-muted">${item.date}</small>
+                        // Renderizar atividades
+                        let activitiesHtml = '';
+                        if (response.activities && response.activities.length > 0) {
+                            response.activities.forEach(function(item) {
+                                activitiesHtml += `
+                                    <div class="timeline-item ${item.status}">
+                                        <div class="timeline-content ${item.color}">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="mb-0">
+                                                    <i class="fas ${item.icon} me-2"></i>${item.title}
+                                                </h6>
+                                                <small class="text-muted">${item.date}</small>
+                                            </div>
+                                            <p class="mb-0">${item.description}</p>
                                         </div>
-                                        <p class="mb-0">${item.description}</p>
                                     </div>
-                                </div>
-                            `;
-                        });
+                                `;
+                            });
+                        } else {
+                            activitiesHtml = '<p class="text-muted text-center">Nenhuma atividade registrada ainda.</p>';
+                        }
                         
-                        html += '</div>';
-                        container.html(html);
+                        // Renderizar interações
+                        let interactionsHtml = '';
+                        if (response.interactions && response.interactions.length > 0) {
+                            response.interactions.forEach(function(item) {
+                                interactionsHtml += `
+                                    <div class="timeline-item ${item.status}">
+                                        <div class="timeline-content ${item.color}">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="mb-0">
+                                                    <i class="fas ${item.icon} me-2"></i>${item.title}
+                                                </h6>
+                                                <small class="text-muted">${item.date}</small>
+                                            </div>
+                                            <div class="mb-0">${item.description}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            interactionsHtml = '<p class="text-muted text-center">Nenhuma interação registrada ainda.</p>';
+                        }
+                        
+                        // Atualizar contadores nas abas
+                        let activitiesCount = response.activities ? response.activities.length : 0;
+                        let interactionsCount = response.interactions ? response.interactions.length : 0;
+                        
+                        $('#activities-tab').html(`<i class="fas fa-tasks me-2"></i>Atividades ${activitiesCount > 0 ? '<span class="badge bg-primary">' + activitiesCount + '</span>' : ''}`);
+                        $('#interactions-tab').html(`<i class="fas fa-comments me-2"></i>Interações ${interactionsCount > 0 ? '<span class="badge bg-primary">' + interactionsCount + '</span>' : ''}`);
+                        
+                        // Atualizar conteúdo
+                        container.html(processInfo);
+                        $('#activitiesTimeline').html(activitiesHtml);
+                        $('#interactionsTimeline').html(interactionsHtml);
+                        
+                        // Mostrar as abas
+                        $('#timelineTabsContainer').show();
                     } else {
                         container.html('<div class="alert alert-danger">' + (response.message || 'Erro ao carregar timeline.') + '</div>');
+                        $('#timelineTabsContainer').hide();
                     }
                 },
                 error: function(xhr) {

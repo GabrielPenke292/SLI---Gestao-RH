@@ -131,8 +131,8 @@ class CandidatesController extends Controller
             ], 404);
         }
         
-        // Construir timeline - apenas evento de vinculação
-        $timeline = [];
+        // Construir atividades (logs do sistema)
+        $activities = [];
         
         // Evento: Vinculação do candidato (buscar do log de atividades)
         $linkLog = \App\Models\ActivityLog::where('log_type', 'candidate_linked')
@@ -146,7 +146,7 @@ class CandidatesController extends Controller
             });
         
         if ($linkLog && $linkLog->created_at) {
-            $timeline[] = [
+            $activities[] = [
                 'date' => $linkLog->created_at->format('d/m/Y H:i'),
                 'title' => 'Candidato Vinculado',
                 'description' => $linkLog->description ?? 'Você foi vinculado a este processo seletivo',
@@ -156,7 +156,7 @@ class CandidatesController extends Controller
             ];
         } elseif ($process->pivot->created_at) {
             // Fallback para usar a data do pivot se não houver log
-            $timeline[] = [
+            $activities[] = [
                 'date' => $process->pivot->created_at->format('d/m/Y H:i'),
                 'title' => 'Candidato Vinculado',
                 'description' => 'Você foi vinculado a este processo seletivo',
@@ -186,7 +186,7 @@ class CandidatesController extends Controller
             $metadata = $noteLog->metadata ?? [];
             $note = $metadata['note'] ?? '';
             if (!empty($note)) {
-                $timeline[] = [
+                $activities[] = [
                     'date' => $noteLog->created_at->format('d/m/Y H:i'),
                     'title' => 'Observação Adicionada',
                     'description' => $note,
@@ -228,7 +228,7 @@ class CandidatesController extends Controller
             $icon = $isAdvance ? 'fa-arrow-right' : 'fa-arrow-left';
             $color = $isAdvance ? 'success' : 'warning';
             
-            $timeline[] = [
+            $activities[] = [
                 'date' => $moveLog->created_at->format('d/m/Y H:i'),
                 'title' => 'Movimentação entre Etapas',
                 'description' => sprintf('Você %s da etapa "%s" para "%s"', $direction, $fromStep, $toStep),
@@ -238,13 +238,19 @@ class CandidatesController extends Controller
             ];
         }
         
-        // Eventos: Interações (perguntas e observações) das etapas
-        $interactions = StepInteraction::where('selection_process_id', $processId)
+        // Ordenar atividades por data
+        usort($activities, function($a, $b) {
+            return strtotime(str_replace('/', '-', $a['date'])) <=> strtotime(str_replace('/', '-', $b['date']));
+        });
+        
+        // Construir interações (perguntas e observações das etapas)
+        $interactions = [];
+        $stepInteractions = StepInteraction::where('selection_process_id', $processId)
             ->where('candidate_id', $candidateId)
             ->orderBy('created_at', 'asc')
             ->get();
         
-        foreach ($interactions as $interaction) {
+        foreach ($stepInteractions as $interaction) {
             // Verificar se created_at existe antes de formatar
             // Como o modelo tem $timestamps = false, precisamos verificar se o campo existe e não é null
             $createdAt = $interaction->created_at;
@@ -275,7 +281,7 @@ class CandidatesController extends Controller
                     $description .= "<br><strong>Resposta:</strong> \"{$interaction->answer}\"";
                 }
                 
-                $timeline[] = [
+                $interactions[] = [
                     'date' => $createdAt->format('d/m/Y H:i'),
                     'title' => 'Pergunta Registrada',
                     'description' => $description,
@@ -287,7 +293,7 @@ class CandidatesController extends Controller
                 $description = "<strong>Etapa:</strong> {$interaction->step}<br>";
                 $description .= "<strong>Observação:</strong> \"{$interaction->observation}\"";
                 
-                $timeline[] = [
+                $interactions[] = [
                     'date' => $createdAt->format('d/m/Y H:i'),
                     'title' => 'Observação Registrada',
                     'description' => $description,
@@ -298,8 +304,8 @@ class CandidatesController extends Controller
             }
         }
         
-        // Ordenar timeline por data
-        usort($timeline, function($a, $b) {
+        // Ordenar interações por data
+        usort($interactions, function($a, $b) {
             return strtotime(str_replace('/', '-', $a['date'])) <=> strtotime(str_replace('/', '-', $b['date']));
         });
         
@@ -311,7 +317,8 @@ class CandidatesController extends Controller
                 'vacancy' => $process->vacancy->vacancy_title ?? 'N/A',
                 'status' => $process->status,
             ],
-            'timeline' => $timeline
+            'activities' => $activities,
+            'interactions' => $interactions
         ]);
     }
 
