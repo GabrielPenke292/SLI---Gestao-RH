@@ -192,6 +192,43 @@ class CandidatesController extends Controller
             }
         }
         
+        // Eventos: Movimentação entre etapas (buscar do log de atividades)
+        $stepMoveLogs = \App\Models\ActivityLog::where('log_type', 'candidate_step_moved')
+            ->where('entity_type', 'Candidate')
+            ->where('entity_id', $candidateId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->filter(function($log) use ($processId) {
+                // Filtrar por process_id no metadata
+                $metadata = $log->metadata ?? [];
+                return isset($metadata['process_id']) && $metadata['process_id'] == $processId;
+            });
+        
+        foreach ($stepMoveLogs as $moveLog) {
+            $metadata = $moveLog->metadata ?? [];
+            $fromStep = $metadata['from_step'] ?? 'Etapa anterior';
+            $toStep = $metadata['to_step'] ?? 'Etapa seguinte';
+            
+            // Determinar se foi avanço ou retorno baseado na ordem das etapas
+            $processSteps = $process->steps ?? [];
+            $fromIndex = array_search($fromStep, $processSteps);
+            $toIndex = array_search($toStep, $processSteps);
+            
+            $isAdvance = $fromIndex !== false && $toIndex !== false && $toIndex > $fromIndex;
+            $direction = $isAdvance ? 'avançou' : 'retornou';
+            $icon = $isAdvance ? 'fa-arrow-right' : 'fa-arrow-left';
+            $color = $isAdvance ? 'success' : 'warning';
+            
+            $timeline[] = [
+                'date' => $moveLog->created_at->format('d/m/Y H:i'),
+                'title' => 'Movimentação entre Etapas',
+                'description' => sprintf('Você %s da etapa "%s" para "%s"', $direction, $fromStep, $toStep),
+                'icon' => $icon,
+                'color' => $color,
+                'status' => 'completed'
+            ];
+        }
+        
         // Ordenar timeline por data
         usort($timeline, function($a, $b) {
             return strtotime(str_replace('/', '-', $a['date'])) <=> strtotime(str_replace('/', '-', $b['date']));

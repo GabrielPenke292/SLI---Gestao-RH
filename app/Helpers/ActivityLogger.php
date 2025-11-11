@@ -13,6 +13,7 @@ class ActivityLogger
      */
     const TYPE_CANDIDATE_LINKED = 'candidate_linked';
     const TYPE_CANDIDATE_UNLINKED = 'candidate_unlinked';
+    const TYPE_CANDIDATE_STEP_MOVED = 'candidate_step_moved';
     const TYPE_PROCESS_CREATED = 'process_created';
     const TYPE_PROCESS_APPROVED = 'process_approved';
     const TYPE_PROCESS_REJECTED = 'process_rejected';
@@ -160,6 +161,47 @@ class ActivityLogger
             'Candidate',
             $candidateId,
             'Observação adicionada sobre candidato',
+            $description,
+            $metadata
+        );
+    }
+
+    /**
+     * Registrar movimentação de candidato entre etapas do processo seletivo
+     *
+     * @param int $candidateId ID do candidato
+     * @param int $processId ID do processo seletivo
+     * @param string $fromStep Etapa de origem
+     * @param string $toStep Etapa de destino
+     * @return ActivityLog
+     */
+    public static function logCandidateStepMoved(int $candidateId, int $processId, string $fromStep, string $toStep): ActivityLog
+    {
+        $candidate = \App\Models\Candidate::find($candidateId);
+        $process = \App\Models\SelectionProcess::find($processId);
+        
+        $description = sprintf(
+            'Candidato "%s" foi movido da etapa "%s" para "%s" no processo seletivo "%s"',
+            $candidate->candidate_name ?? 'N/A',
+            $fromStep,
+            $toStep,
+            $process->process_number ?? 'N/A'
+        );
+        
+        $metadata = [
+            'candidate_id' => $candidateId,
+            'candidate_name' => $candidate->candidate_name ?? null,
+            'process_id' => $processId,
+            'process_number' => $process->process_number ?? null,
+            'from_step' => $fromStep,
+            'to_step' => $toStep,
+        ];
+        
+        return self::log(
+            self::TYPE_CANDIDATE_STEP_MOVED,
+            'Candidate',
+            $candidateId,
+            'Candidato movido entre etapas',
             $description,
             $metadata
         );

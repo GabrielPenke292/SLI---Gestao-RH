@@ -615,17 +615,28 @@ class SelectionsController extends Controller
                 }
                 
                 // Mover candidato para a nova etapa
+                $fromStep = $existingLink->step;
+                $toStep = $validated['step'];
+                
                 DB::table('selection_process_candidates')
                     ->where('selection_process_id', $id)
                     ->where('candidate_id', $validated['candidate_id'])
                     ->update([
-                        'step' => $validated['step'],
+                        'step' => $toStep,
                         'notes' => $validated['notes'] ?? $existingLink->notes,
                         'updated_by' => Auth::user()->user_name ?? 'system',
                         'updated_at' => now(),
                     ]);
                 
-                $message = 'Candidato movido para a etapa "' . $validated['step'] . '" com sucesso!';
+                // Registrar log de movimentação entre etapas
+                ActivityLogger::logCandidateStepMoved(
+                    $validated['candidate_id'],
+                    $id,
+                    $fromStep,
+                    $toStep
+                );
+                
+                $message = 'Candidato movido para a etapa "' . $toStep . '" com sucesso!';
             } else {
                 // Vincular candidato pela primeira vez
                 $process->candidates()->attach($validated['candidate_id'], [
@@ -719,21 +730,32 @@ class SelectionsController extends Controller
         try {
             DB::beginTransaction();
             
+            $fromStep = $existingLink->step;
+            $toStep = $validated['target_step'];
+            
             // Mover candidato para a nova etapa
             DB::table('selection_process_candidates')
                 ->where('selection_process_id', $id)
                 ->where('candidate_id', $validated['candidate_id'])
                 ->update([
-                    'step' => $validated['target_step'],
+                    'step' => $toStep,
                     'updated_by' => Auth::user()->user_name ?? 'system',
                     'updated_at' => now(),
                 ]);
+            
+            // Registrar log de movimentação entre etapas
+            ActivityLogger::logCandidateStepMoved(
+                $validated['candidate_id'],
+                $id,
+                $fromStep,
+                $toStep
+            );
             
             DB::commit();
             
             return response()->json([
                 'success' => true,
-                'message' => 'Candidato movido para a etapa "' . $validated['target_step'] . '" com sucesso!'
+                'message' => 'Candidato movido para a etapa "' . $toStep . '" com sucesso!'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
