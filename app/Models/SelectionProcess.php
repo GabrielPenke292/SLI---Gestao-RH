@@ -92,7 +92,7 @@ class SelectionProcess extends Model
     public function candidates(): BelongsToMany
     {
         return $this->belongsToMany(Candidate::class, 'selection_process_candidates', 'selection_process_id', 'candidate_id')
-            ->withPivot('status', 'notes', 'created_at', 'created_by', 'updated_at', 'updated_by');
+            ->withPivot('step', 'status', 'notes', 'created_at', 'created_by', 'updated_at', 'updated_by');
     }
 
     /**

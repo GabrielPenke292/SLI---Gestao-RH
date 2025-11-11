@@ -499,12 +499,13 @@ class SelectionsController extends Controller
     }
 
     /**
-     * Buscar candidatos para vincular ao processo seletivo
+     * Buscar candidatos para vincular a uma etapa do processo seletivo
      */
     public function searchCandidates(Request $request): JsonResponse
     {
         $search = $request->input('search', '');
         $processId = $request->input('process_id');
+        $step = $request->input('step');
         
         $query = Candidate::whereNull('deleted_at');
         
@@ -518,24 +519,25 @@ class SelectionsController extends Controller
             });
         }
         
-        // Excluir candidatos já vinculados a este processo
-        if ($processId) {
-            $process = SelectionProcess::find($processId);
-            if ($process) {
-                // Usar query direta na tabela pivot para evitar ambiguidade
-                $linkedCandidateIds = DB::table('selection_process_candidates')
-                    ->where('selection_process_id', $processId)
-                    ->pluck('candidate_id')
-                    ->toArray();
-                if (!empty($linkedCandidateIds)) {
-                    $query->whereNotIn('candidate_id', $linkedCandidateIds);
-                }
-            }
-        }
+        // Não excluir candidatos já vinculados - permite mover entre etapas
+        // A constraint única no banco garante que um candidato só pode estar em uma etapa por vez
         
         $candidates = $query->orderBy('candidate_name')->limit(20)->get();
         
-        $data = $candidates->map(function($candidate) {
+        // Buscar informações sobre candidatos já vinculados ao processo
+        $linkedCandidates = [];
+        if ($processId) {
+            $linkedCandidates = DB::table('selection_process_candidates')
+                ->where('selection_process_id', $processId)
+                ->pluck('step', 'candidate_id')
+                ->toArray();
+        }
+        
+        $data = $candidates->map(function($candidate) use ($linkedCandidates, $step) {
+            $isLinked = isset($linkedCandidates[$candidate->candidate_id]);
+            $currentStep = $isLinked ? $linkedCandidates[$candidate->candidate_id] : null;
+            $isInCurrentStep = $currentStep === $step;
+            
             return [
                 'id' => $candidate->candidate_id,
                 'name' => $candidate->candidate_name,
@@ -547,6 +549,9 @@ class SelectionsController extends Controller
                 'skills' => $candidate->candidate_skills ?? '-',
                 'resume_pdf_url' => $candidate->resume_pdf_url,
                 'has_pdf' => $candidate->has_resume_pdf,
+                'is_linked' => $isLinked,
+                'current_step' => $currentStep,
+                'is_in_current_step' => $isInCurrentStep,
             ];
         });
         
@@ -557,7 +562,7 @@ class SelectionsController extends Controller
     }
 
     /**
-     * Vincular candidato ao processo seletivo
+     * Vincular candidato a uma etapa do processo seletivo
      */
     public function attachCandidate(Request $request, $id): JsonResponse
     {
@@ -572,48 +577,81 @@ class SelectionsController extends Controller
         
         $validated = $request->validate([
             'candidate_id' => 'required|exists:candidates,candidate_id',
+            'step' => 'required|string|max:100',
             'notes' => 'nullable|string',
         ], [
             'candidate_id.required' => 'O candidato é obrigatório.',
             'candidate_id.exists' => 'O candidato selecionado é inválido.',
+            'step.required' => 'A etapa é obrigatória.',
+            'step.string' => 'A etapa deve ser um texto válido.',
+            'step.max' => 'A etapa não pode ter mais de 100 caracteres.',
         ]);
         
-        // Verificar se o candidato já está vinculado (usando query direta para evitar ambiguidade)
-        $alreadyLinked = DB::table('selection_process_candidates')
-            ->where('selection_process_id', $id)
-            ->where('candidate_id', $validated['candidate_id'])
-            ->exists();
-        
-        if ($alreadyLinked) {
+        // Verificar se a etapa existe no processo
+        $processSteps = $process->steps ?? [];
+        if (!in_array($validated['step'], $processSteps)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Este candidato já está vinculado a este processo.'
+                'message' => 'A etapa selecionada não existe neste processo seletivo.'
             ], 400);
         }
+        
+        // Verificar se o candidato já está vinculado em outra etapa
+        $existingLink = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $validated['candidate_id'])
+            ->first();
         
         try {
             DB::beginTransaction();
             
-            $process->candidates()->attach($validated['candidate_id'], [
-                'status' => 'pendente',
-                'notes' => $validated['notes'] ?? null,
-                'created_by' => Auth::user()->user_name ?? 'system',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            
-            // Registrar log de atividade
-            ActivityLogger::logCandidateLinked(
-                $validated['candidate_id'],
-                $id,
-                $validated['notes'] ?? null
-            );
+            if ($existingLink) {
+                // Se já está vinculado em outra etapa, mover para a nova etapa
+                if ($existingLink->step === $validated['step']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Este candidato já está vinculado a esta etapa do processo.'
+                    ], 400);
+                }
+                
+                // Mover candidato para a nova etapa
+                DB::table('selection_process_candidates')
+                    ->where('selection_process_id', $id)
+                    ->where('candidate_id', $validated['candidate_id'])
+                    ->update([
+                        'step' => $validated['step'],
+                        'notes' => $validated['notes'] ?? $existingLink->notes,
+                        'updated_by' => Auth::user()->user_name ?? 'system',
+                        'updated_at' => now(),
+                    ]);
+                
+                $message = 'Candidato movido para a etapa "' . $validated['step'] . '" com sucesso!';
+            } else {
+                // Vincular candidato pela primeira vez
+                $process->candidates()->attach($validated['candidate_id'], [
+                    'step' => $validated['step'],
+                    'status' => 'pendente',
+                    'notes' => $validated['notes'] ?? null,
+                    'created_by' => Auth::user()->user_name ?? 'system',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                
+                // Registrar log de atividade
+                ActivityLogger::logCandidateLinked(
+                    $validated['candidate_id'],
+                    $id,
+                    $validated['notes'] ?? null
+                );
+                
+                $message = 'Candidato vinculado à etapa com sucesso!';
+            }
             
             DB::commit();
             
             return response()->json([
                 'success' => true,
-                'message' => 'Candidato vinculado com sucesso!'
+                'message' => $message
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -625,7 +663,89 @@ class SelectionsController extends Controller
     }
 
     /**
-     * Desvincular candidato do processo seletivo
+     * Mover candidato entre etapas do processo seletivo
+     */
+    public function moveCandidate(Request $request, $id): JsonResponse
+    {
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        
+        if ($process->status !== 'em_andamento') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Apenas processos em andamento podem ter candidatos movidos.'
+            ], 400);
+        }
+        
+        $validated = $request->validate([
+            'candidate_id' => 'required|exists:candidates,candidate_id',
+            'target_step' => 'required|string|max:100',
+        ], [
+            'candidate_id.required' => 'O candidato é obrigatório.',
+            'candidate_id.exists' => 'O candidato selecionado é inválido.',
+            'target_step.required' => 'A etapa de destino é obrigatória.',
+            'target_step.string' => 'A etapa deve ser um texto válido.',
+            'target_step.max' => 'A etapa não pode ter mais de 100 caracteres.',
+        ]);
+        
+        // Verificar se a etapa de destino existe no processo
+        $processSteps = $process->steps ?? [];
+        if (!in_array($validated['target_step'], $processSteps)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A etapa de destino não existe neste processo seletivo.'
+            ], 400);
+        }
+        
+        // Verificar se o candidato está vinculado ao processo
+        $existingLink = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $validated['candidate_id'])
+            ->first();
+        
+        if (!$existingLink) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato não está vinculado a este processo.'
+            ], 404);
+        }
+        
+        if ($existingLink->step === $validated['target_step']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'O candidato já está nesta etapa.'
+            ], 400);
+        }
+        
+        try {
+            DB::beginTransaction();
+            
+            // Mover candidato para a nova etapa
+            DB::table('selection_process_candidates')
+                ->where('selection_process_id', $id)
+                ->where('candidate_id', $validated['candidate_id'])
+                ->update([
+                    'step' => $validated['target_step'],
+                    'updated_by' => Auth::user()->user_name ?? 'system',
+                    'updated_at' => now(),
+                ]);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidato movido para a etapa "' . $validated['target_step'] . '" com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao mover candidato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Desvincular candidato de uma etapa do processo seletivo
      */
     public function detachCandidate(Request $request, $id): JsonResponse
     {
@@ -633,15 +753,24 @@ class SelectionsController extends Controller
         
         $validated = $request->validate([
             'candidate_id' => 'required|exists:candidates,candidate_id',
+            'step' => 'required|string|max:100',
         ], [
             'candidate_id.required' => 'O candidato é obrigatório.',
             'candidate_id.exists' => 'O candidato selecionado é inválido.',
+            'step.required' => 'A etapa é obrigatória.',
+            'step.string' => 'A etapa deve ser um texto válido.',
+            'step.max' => 'A etapa não pode ter mais de 100 caracteres.',
         ]);
         
         try {
             DB::beginTransaction();
             
-            $process->candidates()->detach($validated['candidate_id']);
+            // Desvincular apenas da etapa específica
+            DB::table('selection_process_candidates')
+                ->where('selection_process_id', $id)
+                ->where('candidate_id', $validated['candidate_id'])
+                ->where('step', $validated['step'])
+                ->delete();
             
             // Registrar log de atividade
             ActivityLogger::logCandidateUnlinked(
@@ -653,7 +782,7 @@ class SelectionsController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => 'Candidato desvinculado com sucesso!'
+                'message' => 'Candidato desvinculado da etapa com sucesso!'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -742,6 +871,7 @@ class SelectionsController extends Controller
                 'name' => $candidate->candidate_name,
                 'email' => $candidate->candidate_email ?? '-',
                 'phone' => $candidate->candidate_phone ?? '-',
+                'step' => $candidate->pivot->step ?? '-',
                 'status' => $candidate->pivot->status ?? 'pendente',
                 'notes' => $candidate->pivot->notes ?? null,
                 'linked_at' => $candidate->pivot->created_at?->format('d/m/Y H:i') ?? '-',

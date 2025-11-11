@@ -245,7 +245,7 @@
                                 </div>
 
                                 <!-- Seção de Etapas (Tabs) -->
-                                @if($process->steps && count($process->steps) > 0)
+                                @if($process->steps && count($process->steps) > 0 && $process->status === 'em_andamento')
                                 <div class="steps-section mt-4 mb-4">
                                     <h5 class="mb-3"><i class="fas fa-list-ol me-2"></i>Etapas do Processo</h5>
                                     <ul class="nav nav-tabs" id="processStepsTabs" role="tablist">
@@ -269,79 +269,111 @@
                                             <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}" 
                                                  id="step-{{ $index }}" 
                                                  role="tabpanel" 
-                                                 aria-labelledby="step-{{ $index }}-tab">
+                                                 aria-labelledby="step-{{ $index }}-tab"
+                                                 data-step-name="{{ $step }}">
                                                 <div class="card border-top-0 rounded-top-0">
                                                     <div class="card-body">
-                                                        <h6 class="card-title">{{ $step }}</h6>
-                                                        <p class="text-muted">Conteúdo da etapa será implementado em breve.</p>
+                                                        <!-- Seção de Candidatos da Etapa -->
+                                                        @if($process->status === 'em_andamento')
+                                                        <div class="candidates-section">
+                                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                                <h6 class="mb-0"><i class="fas fa-users me-2"></i>Candidatos da Etapa: {{ $step }}</h6>
+                                                                <button type="button" class="btn btn-primary btn-sm btn-link-candidate-to-step" data-step="{{ $step }}" data-bs-toggle="modal" data-bs-target="#searchCandidateModal">
+                                                                    <i class="fas fa-plus me-2"></i>Vincular Candidato
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            <div class="candidates-table-container" data-step="{{ $step }}">
+                                                                <table class="table table-striped table-hover candidates-table">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Nome</th>
+                                                                            <th>E-mail</th>
+                                                                            <th>Telefone</th>
+                                                                            <th>Status</th>
+                                                                            <th>Data de Vinculação</th>
+                                                                            <th>Ações</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        @php
+                                                                            $stepCandidates = $process->candidates->filter(function($candidate) use ($step) {
+                                                                                return ($candidate->pivot->step ?? '') === $step;
+                                                                            });
+                                                                        @endphp
+                                                                        @forelse($stepCandidates as $candidate)
+                                                                            <tr data-candidate-id="{{ $candidate->candidate_id }}" data-step="{{ $candidate->pivot->step ?? '' }}">
+                                                                                <td>{{ $candidate->candidate_name }}</td>
+                                                                                <td>{{ $candidate->candidate_email ?? '-' }}</td>
+                                                                                <td>{{ $candidate->candidate_phone ?? '-' }}</td>
+                                                                                <td>
+                                                                                    @php
+                                                                                        $status = $candidate->pivot->status ?? 'pendente';
+                                                                                        $badges = [
+                                                                                            'pendente' => '<span class="badge bg-warning">Pendente</span>',
+                                                                                            'aprovado' => '<span class="badge bg-success">Aprovado</span>',
+                                                                                            'reprovado' => '<span class="badge bg-danger">Reprovado</span>',
+                                                                                            'contratado' => '<span class="badge bg-info">Contratado</span>',
+                                                                                        ];
+                                                                                    @endphp
+                                                                                    {!! $badges[$status] ?? '<span class="badge bg-secondary">' . $status . '</span>' !!}
+                                                                                </td>
+                                                                                <td>{{ $candidate->pivot->created_at?->format('d/m/Y H:i') ?? '-' }}</td>
+                                                                                <td>
+                                                                                    <div class="btn-group" role="group">
+                                                                                        <a href="{{ route('candidates.show', $candidate->candidate_id) }}" target="_blank" class="btn btn-sm btn-info" title="Ver Perfil">
+                                                                                            <i class="fas fa-eye"></i>
+                                                                                        </a>
+                                                                                        <button type="button" class="btn btn-sm btn-warning btn-add-note" data-candidate-id="{{ $candidate->candidate_id }}" data-candidate-name="{{ $candidate->candidate_name }}" data-current-notes="{{ $candidate->pivot->notes ?? '' }}" title="Adicionar Observação">
+                                                                                            <i class="fas fa-sticky-note"></i>
+                                                                                        </button>
+                                                                                        @php
+                                                                                            $currentStepIndex = array_search($step, $process->steps);
+                                                                                            $hasPreviousStep = $currentStepIndex > 0;
+                                                                                            $hasNextStep = $currentStepIndex < count($process->steps) - 1;
+                                                                                        @endphp
+                                                                                        @if($hasPreviousStep)
+                                                                                            <button type="button" class="btn btn-sm btn-secondary btn-move-candidate" 
+                                                                                                    data-candidate-id="{{ $candidate->candidate_id }}" 
+                                                                                                    data-current-step="{{ $step }}"
+                                                                                                    data-target-step="{{ $process->steps[$currentStepIndex - 1] }}"
+                                                                                                    data-direction="left"
+                                                                                                    title="Mover para {{ $process->steps[$currentStepIndex - 1] }}">
+                                                                                                <i class="fas fa-arrow-left"></i>
+                                                                                            </button>
+                                                                                        @endif
+                                                                                        @if($hasNextStep)
+                                                                                            <button type="button" class="btn btn-sm btn-secondary btn-move-candidate" 
+                                                                                                    data-candidate-id="{{ $candidate->candidate_id }}" 
+                                                                                                    data-current-step="{{ $step }}"
+                                                                                                    data-target-step="{{ $process->steps[$currentStepIndex + 1] }}"
+                                                                                                    data-direction="right"
+                                                                                                    title="Mover para {{ $process->steps[$currentStepIndex + 1] }}">
+                                                                                                <i class="fas fa-arrow-right"></i>
+                                                                                            </button>
+                                                                                        @endif
+                                                                                        <button type="button" class="btn btn-sm btn-danger btn-detach-candidate" data-candidate-id="{{ $candidate->candidate_id }}" data-step="{{ $candidate->pivot->step ?? '' }}" title="Desvincular da Etapa">
+                                                                                            <i class="fas fa-unlink"></i>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        @empty
+                                                                            <tr>
+                                                                                <td colspan="6" class="text-center text-muted">Nenhum candidato vinculado a esta etapa ainda.</td>
+                                                                            </tr>
+                                                                        @endforelse
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                        @else
+                                                        <p class="text-muted">O processo precisa estar em andamento para gerenciar candidatos.</p>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>
                                         @endforeach
-                                    </div>
-                                </div>
-                                @endif
-
-                                <!-- Seção de Candidatos -->
-                                @if($process->status === 'em_andamento')
-                                <div class="candidates-section">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Candidatos Vinculados</h5>
-                                        <button type="button" class="btn btn-primary btn-sm" id="btnSearchCandidate" data-bs-toggle="modal" data-bs-target="#searchCandidateModal">
-                                            <i class="fas fa-plus me-2"></i>Vincular Candidato
-                                        </button>
-                                    </div>
-                                    
-                                    <div id="candidatesTableContainer">
-                                        <table class="table table-striped table-hover" id="candidatesTable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Nome</th>
-                                                    <th>E-mail</th>
-                                                    <th>Telefone</th>
-                                                    <th>Status</th>
-                                                    <th>Data de Vinculação</th>
-                                                    <th>Ações</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @forelse($process->candidates as $candidate)
-                                                    <tr data-candidate-id="{{ $candidate->candidate_id }}">
-                                                        <td>{{ $candidate->candidate_name }}</td>
-                                                        <td>{{ $candidate->candidate_email ?? '-' }}</td>
-                                                        <td>{{ $candidate->candidate_phone ?? '-' }}</td>
-                                                        <td>
-                                                            @php
-                                                                $status = $candidate->pivot->status ?? 'pendente';
-                                                                $badges = [
-                                                                    'pendente' => '<span class="badge bg-warning">Pendente</span>',
-                                                                    'aprovado' => '<span class="badge bg-success">Aprovado</span>',
-                                                                    'reprovado' => '<span class="badge bg-danger">Reprovado</span>',
-                                                                    'contratado' => '<span class="badge bg-info">Contratado</span>',
-                                                                ];
-                                                            @endphp
-                                                            {!! $badges[$status] ?? '<span class="badge bg-secondary">' . $status . '</span>' !!}
-                                                        </td>
-                                                        <td>{{ $candidate->pivot->created_at?->format('d/m/Y H:i') ?? '-' }}</td>
-                                                        <td>
-                                                            <a href="{{ route('candidates.show', $candidate->candidate_id) }}" target="_blank" class="btn btn-sm btn-info" title="Ver Perfil">
-                                                                <i class="fas fa-eye"></i>
-                                                            </a>
-                                                            <button type="button" class="btn btn-sm btn-warning btn-add-note" data-candidate-id="{{ $candidate->candidate_id }}" data-candidate-name="{{ $candidate->candidate_name }}" data-current-notes="{{ $candidate->pivot->notes ?? '' }}" title="Adicionar Observação">
-                                                                <i class="fas fa-sticky-note"></i>
-                                                            </button>
-                                                            <button type="button" class="btn btn-sm btn-danger btn-detach-candidate" data-candidate-id="{{ $candidate->candidate_id }}" title="Desvincular">
-                                                                <i class="fas fa-unlink"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @empty
-                                                    <tr>
-                                                        <td colspan="6" class="text-center text-muted">Nenhum candidato vinculado ainda.</td>
-                                                    </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
                                     </div>
                                 </div>
                                 @endif
@@ -410,6 +442,19 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
+                    <label for="candidateStepSelect" class="form-label">Etapa do Processo <span class="text-danger">*</span></label>
+                    <select class="form-select" id="candidateStepSelect" required>
+                        <option value="">Selecione uma etapa...</option>
+                        @if($process->steps && count($process->steps) > 0)
+                            @foreach($process->steps as $step)
+                                <option value="{{ $step }}">{{ $step }}</option>
+                            @endforeach
+                        @endif
+                    </select>
+                    <small class="form-text text-muted">Selecione a etapa em que o candidato será vinculado.</small>
+                </div>
+                
+                <div class="mb-3">
                     <label for="candidateSearch" class="form-label">Buscar Candidato</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="candidateSearch" placeholder="Digite o nome, e-mail, telefone, CPF ou busque no texto do currículo...">
@@ -420,7 +465,7 @@
                 </div>
                 
                 <div id="candidatesSearchResults" class="mt-3">
-                    <p class="text-muted text-center">Digite um termo de busca para encontrar candidatos.</p>
+                    <p class="text-muted text-center">Selecione uma etapa e digite um termo de busca para encontrar candidatos.</p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -629,6 +674,13 @@
 
         // Buscar candidatos
         function searchCandidates() {
+            const step = $('#candidateStepSelect').val();
+            if (!step) {
+                alert('Por favor, selecione uma etapa antes de buscar candidatos.');
+                $('#candidateStepSelect').focus();
+                return;
+            }
+            
             const search = $('#candidateSearch').val().trim();
             const resultsContainer = $('#candidatesSearchResults');
             
@@ -639,7 +691,8 @@
                 method: 'GET',
                 data: {
                     search: search,
-                    process_id: processId
+                    process_id: processId,
+                    step: step
                 },
                 success: function(response) {
                     if (response.success && response.data.length > 0) {
@@ -661,9 +714,17 @@
                                         </div>
                                         <div class="card-footer bg-transparent">
                                             ${candidate.has_pdf ? `<a href="${candidate.resume_pdf_url}" target="_blank" class="btn btn-sm btn-danger me-2"><i class="fas fa-file-pdf me-1"></i>Ver PDF</a>` : ''}
-                                            <button type="button" class="btn btn-sm btn-primary btn-attach-candidate" data-candidate-id="${candidate.id}">
-                                                <i class="fas fa-link me-1"></i>Vincular
-                                            </button>
+                                            ${candidate.is_linked ? 
+                                                (candidate.is_in_current_step ? 
+                                                    '<span class="badge bg-success me-2">Já nesta etapa</span>' : 
+                                                    `<button type="button" class="btn btn-sm btn-primary btn-attach-candidate" data-candidate-id="${candidate.id}" title="Mover de '${candidate.current_step}' para esta etapa">
+                                                        <i class="fas fa-exchange-alt me-1"></i>Mover de "${candidate.current_step}"
+                                                    </button>`
+                                                ) : 
+                                                `<button type="button" class="btn btn-sm btn-primary btn-attach-candidate" data-candidate-id="${candidate.id}">
+                                                    <i class="fas fa-link me-1"></i>Vincular
+                                                </button>`
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -693,7 +754,14 @@
         // Vincular candidato
         $(document).on('click', '.btn-attach-candidate', function() {
             const candidateId = $(this).data('candidate-id');
+            const step = $('#candidateStepSelect').val();
             const button = $(this);
+            
+            if (!step) {
+                alert('Por favor, selecione uma etapa antes de vincular o candidato.');
+                $('#candidateStepSelect').focus();
+                return;
+            }
             
             button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Vinculando...');
             
@@ -702,6 +770,7 @@
                 method: 'POST',
                 data: {
                     candidate_id: candidateId,
+                    step: step,
                     _token: '{{ csrf_token() }}'
                 },
                 success: function(response) {
@@ -719,6 +788,22 @@
                     button.prop('disabled', false).html('<i class="fas fa-link me-1"></i>Vincular');
                 }
             });
+        });
+        
+        // Quando o botão "Vincular Candidato" dentro de uma aba for clicado, definir a etapa automaticamente
+        $(document).on('click', '.btn-link-candidate-to-step', function() {
+            const step = $(this).data('step');
+            if (step) {
+                $('#candidateStepSelect').val(step);
+            }
+        });
+        
+        // Limpar campos quando o modal for fechado
+        $('#searchCandidateModal').on('hidden.bs.modal', function() {
+            // Não limpar a etapa se foi definida por um botão de aba
+            // Apenas limpar se o modal foi fechado sem ação
+            $('#candidateSearch').val('');
+            $('#candidatesSearchResults').html('<p class="text-muted text-center">Selecione uma etapa e digite um termo de busca para encontrar candidatos.</p>');
         });
 
         // Adicionar observação
@@ -782,13 +867,77 @@
             });
         });
 
-        // Desvincular candidato
-        $(document).on('click', '.btn-detach-candidate', function() {
-            if (!confirm('Tem certeza que deseja desvincular este candidato do processo?')) {
+        // Mover candidato entre etapas
+        $(document).on('click', '.btn-move-candidate', function() {
+            const candidateId = $(this).data('candidate-id');
+            const currentStep = $(this).data('current-step');
+            const targetStep = $(this).data('target-step');
+            const direction = $(this).data('direction');
+            const button = $(this);
+            const row = button.closest('tr');
+            
+            if (!targetStep) {
+                alert('Erro: etapa de destino não encontrada.');
                 return;
             }
             
+            const directionText = direction === 'left' ? 'anterior' : 'próxima';
+            if (!confirm(`Tem certeza que deseja mover este candidato para a etapa "${targetStep}"?`)) {
+                return;
+            }
+            
+            button.prop('disabled', true);
+            
+            $.ajax({
+                url: '{{ route("selections.move.candidate", ":id") }}'.replace(':id', processId),
+                method: 'POST',
+                data: {
+                    candidate_id: candidateId,
+                    target_step: targetStep,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Remover a linha da tabela atual
+                        const table = row.closest('.candidates-table');
+                        row.fadeOut(300, function() {
+                            $(this).remove();
+                            if (table.find('tbody tr').length === 0) {
+                                table.find('tbody').html('<tr><td colspan="6" class="text-center text-muted">Nenhum candidato vinculado a esta etapa ainda.</td></tr>');
+                            }
+                        });
+                        
+                        // Recarregar a página para atualizar todas as abas
+                        setTimeout(function() {
+                            location.reload();
+                        }, 300);
+                    } else {
+                        alert(response.message || 'Erro ao mover candidato.');
+                        button.prop('disabled', false);
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao mover candidato.';
+                    alert(message);
+                    button.prop('disabled', false);
+                }
+            });
+        });
+
+        // Desvincular candidato
+        $(document).on('click', '.btn-detach-candidate', function() {
             const candidateId = $(this).data('candidate-id');
+            const step = $(this).data('step');
+            
+            if (!step) {
+                alert('Erro: etapa não encontrada.');
+                return;
+            }
+            
+            if (!confirm(`Tem certeza que deseja desvincular este candidato da etapa "${step}"?`)) {
+                return;
+            }
+            
             const button = $(this);
             const row = button.closest('tr');
             
@@ -799,14 +948,16 @@
                 method: 'POST',
                 data: {
                     candidate_id: candidateId,
+                    step: step,
                     _token: '{{ csrf_token() }}'
                 },
                 success: function(response) {
                     if (response.success) {
+                        const table = row.closest('.candidates-table');
                         row.fadeOut(300, function() {
                             $(this).remove();
-                            if ($('#candidatesTable tbody tr').length === 0) {
-                                $('#candidatesTable tbody').html('<tr><td colspan="6" class="text-center text-muted">Nenhum candidato vinculado ainda.</td></tr>');
+                            if (table.find('tbody tr').length === 0) {
+                                table.find('tbody').html('<tr><td colspan="6" class="text-center text-muted">Nenhum candidato vinculado a esta etapa ainda.</td></tr>');
                             }
                         });
                     } else {
