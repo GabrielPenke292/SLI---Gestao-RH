@@ -9,7 +9,7 @@
                 <i class="fas fa-home me-2"></i>Bem-vindo ao Dashboard
             </h2>
             <p class="card-text">
-                Olá, <strong>{{ session('user.name') }}</strong>! Você está logado no sistema SLI de gestão de RH.
+                Olá, <strong>{{ session('user.name') }}</strong>! Você está logado no sistema HERO (Human Engagement & Resource Optimizer) de gestão de RH.
             </p>
         </div>
     </div>

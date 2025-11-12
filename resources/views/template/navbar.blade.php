@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
         <a class="navbar-brand" href="{{ route('dashboard') }}">   
-            <i class="fas fa-users-cog me-2"></i>SLI
+            <i class="fas fa-users-cog me-2"></i>HERO
         </a>
         <div class="navbar-nav ms-auto">
             <div class="nav-item dropdown">

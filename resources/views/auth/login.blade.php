@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLI - Gestão de RH | Login</title>
+    <title>HERO - Gestão de RH | Login</title>
     <link href="{{ asset('assets/css/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/login/login.css') }}">
@@ -12,8 +12,8 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <h1><i class="fas fa-users-cog me-2"></i>SLI</h1>
-                <p>Sistema de Gestão de Recursos Humanos</p>
+                <h1><i class="fas fa-users-cog me-2"></i>HERO</h1>
+                <p>Human Engagement & Resource Optimizer</p>
             </div>
             
             <div class="login-body">
