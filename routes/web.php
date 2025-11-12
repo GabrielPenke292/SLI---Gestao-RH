@@ -150,6 +150,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exams/clinics/{id}', [ExamsController::class, 'getClinic'])->name('exams.clinics.get');
     Route::put('/exams/clinics/{id}', [ExamsController::class, 'updateClinic'])->name('exams.clinics.update');
     Route::delete('/exams/clinics/{id}', [ExamsController::class, 'deleteClinic'])->name('exams.clinics.delete');
+    Route::get('/exams/dismissals', [ExamsController::class, 'dismissals'])->name('exams.dismissals');
+    Route::get('/exams/dismissals/data', [ExamsController::class, 'getDismissalExamsData'])->name('exams.dismissals.data');
+    Route::get('/exams/dismissals/dismissed-workers', [ExamsController::class, 'getDismissedWorkers'])->name('exams.dismissals.dismissed.workers');
+    Route::post('/exams/dismissals', [ExamsController::class, 'storeDismissalExam'])->name('exams.dismissals.store');
+    Route::put('/exams/dismissals/{id}/status', [ExamsController::class, 'updateDismissalExamStatus'])->name('exams.dismissals.update.status');
+    Route::get('/exams/dismissals/{id}/pdf', [ExamsController::class, 'generateDismissalExamPDF'])->name('exams.dismissals.pdf');
     // Layoffs routes
     Route::get('/layoffs', [LayoffsController::class, 'index'])->name('layoffs.index');
     Route::get('/layoffs/active-workers', [LayoffsController::class, 'getActiveWorkers'])->name('layoffs.active.workers');

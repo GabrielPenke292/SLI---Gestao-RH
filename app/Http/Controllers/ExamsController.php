@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Clinic;
 use App\Models\AdmissionalExam;
+use App\Models\DismissalExam;
 use App\Models\Candidate;
 use App\Models\SelectionProcess;
+use App\Models\Worker;
+use App\Models\Layoff;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ExamsController extends Controller
@@ -28,6 +31,11 @@ class ExamsController extends Controller
     public function clinics()
     {
         return view('exams.clinics');
+    }
+
+    public function dismissals()
+    {
+        return view('exams.dismissals');
     }
 
     /**
@@ -451,6 +459,193 @@ class ExamsController extends Controller
         $pdf = Pdf::loadView('exams.pdf.exam-document', $data);
         
         $filename = 'exame_admissional_' . $exam->candidate->candidate_name . '_' . date('YmdHis') . '.pdf';
+        
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Buscar todos os exames demissionais
+     */
+    public function getDismissalExamsData(): JsonResponse
+    {
+        $exams = DismissalExam::whereNull('deleted_at')
+            ->with(['worker.department', 'worker.roles', 'clinic'])
+            ->orderBy('exam_date', 'desc')
+            ->orderBy('exam_time', 'desc')
+            ->get()
+            ->map(function($exam) {
+                $roles = $exam->worker->roles->pluck('role_name')->implode(', ');
+                
+                return [
+                    'dismissal_exam_id' => $exam->dismissal_exam_id,
+                    'worker_name' => $exam->worker->worker_name ?? '-',
+                    'worker_email' => $exam->worker->worker_email ?? '-',
+                    'department' => $exam->worker->department?->department_name ?? '-',
+                    'position' => $roles ?: '-',
+                    'clinic_name' => $exam->clinic->corporate_name ?? '-',
+                    'exam_date' => $exam->exam_date?->format('d/m/Y') ?? '-',
+                    'exam_time' => $exam->exam_time ? \Carbon\Carbon::parse($exam->exam_time)->format('H:i') : '-',
+                    'status' => $exam->status,
+                    'created_at' => $exam->created_at?->format('d/m/Y H:i') ?? '-',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $exams
+        ]);
+    }
+
+    /**
+     * Buscar funcionários desligados
+     */
+    public function getDismissedWorkers(): JsonResponse
+    {
+        $workers = Worker::whereNull('deleted_at')
+            ->where('worker_status', 0)
+            ->whereHas('layoffs', function($query) {
+                $query->whereNull('deleted_at');
+            })
+            ->with(['department', 'roles', 'layoffs' => function($query) {
+                $query->whereNull('deleted_at')->orderBy('layoff_date', 'desc');
+            }])
+            ->orderBy('worker_name', 'asc')
+            ->get()
+            ->map(function($worker) {
+                $roles = $worker->roles->pluck('role_name')->implode(', ');
+                $latestLayoff = $worker->layoffs->first();
+                
+                return [
+                    'worker_id' => $worker->worker_id,
+                    'worker_name' => $worker->worker_name,
+                    'worker_email' => $worker->worker_email ?? '-',
+                    'worker_phone' => '-',
+                    'department' => $worker->department?->department_name ?? '-',
+                    'position' => $roles ?: '-',
+                    'layoff_date' => $latestLayoff?->layoff_date?->format('d/m/Y') ?? '-',
+                    'layoff_type' => $latestLayoff?->layoff_type ?? '-',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $workers
+        ]);
+    }
+
+    /**
+     * Criar novo agendamento de exame demissional
+     */
+    public function storeDismissalExam(Request $request): JsonResponse
+    {
+        $request->validate([
+            'worker_id' => 'required|integer|exists:workers,worker_id',
+            'clinic_id' => 'required|integer|exists:clinics,clinic_id',
+            'exam_date' => 'required|date',
+            'exam_time' => 'nullable|date_format:H:i',
+            'notes' => 'nullable|string',
+        ]);
+
+        try {
+            $user = Auth::user();
+
+            // Verificar se funcionário foi desligado
+            $worker = Worker::whereNull('deleted_at')
+                ->where('worker_status', 0)
+                ->whereHas('layoffs', function($query) {
+                    $query->whereNull('deleted_at');
+                })
+                ->findOrFail($request->input('worker_id'));
+
+            $exam = DismissalExam::create([
+                'worker_id' => $request->input('worker_id'),
+                'clinic_id' => $request->input('clinic_id'),
+                'exam_date' => $request->input('exam_date'),
+                'exam_time' => $request->input('exam_time') ? \Carbon\Carbon::parse($request->input('exam_time'))->format('H:i:s') : null,
+                'status' => 'agendado',
+                'notes' => $request->input('notes'),
+                'created_at' => now(),
+                'created_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Exame demissional agendado com sucesso!',
+                'data' => $exam
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao agendar exame: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Atualizar status do exame demissional
+     */
+    public function updateDismissalExamStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'status' => 'required|in:agendado,cancelado,finalizado',
+            'cancellation_reason' => 'nullable|string|required_if:status,cancelado',
+            'exam_result' => 'nullable|string',
+        ]);
+
+        $exam = DismissalExam::whereNull('deleted_at')->findOrFail($id);
+
+        try {
+            $user = Auth::user();
+
+            $updateData = [
+                'status' => $request->input('status'),
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ];
+
+            if ($request->input('status') === 'cancelado') {
+                $updateData['cancellation_reason'] = $request->input('cancellation_reason');
+            }
+
+            if ($request->input('status') === 'finalizado') {
+                $updateData['exam_result'] = $request->input('exam_result');
+            }
+
+            $exam->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status do exame atualizado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao atualizar status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Gerar PDF com informações do funcionário desligado
+     */
+    public function generateDismissalExamPDF($id)
+    {
+        $exam = DismissalExam::whereNull('deleted_at')
+            ->with(['worker.department', 'worker.roles', 'clinic', 'worker.layoffs' => function($query) {
+                $query->whereNull('deleted_at')->orderBy('layoff_date', 'desc');
+            }])
+            ->findOrFail($id);
+
+        $data = [
+            'exam' => $exam,
+            'worker' => $exam->worker,
+            'clinic' => $exam->clinic,
+            'layoff' => $exam->worker->layoffs->first(),
+        ];
+
+        $pdf = Pdf::loadView('exams.pdf.dismissal-exam-document', $data);
+        
+        $filename = 'exame_demissional_' . $exam->worker->worker_name . '_' . date('YmdHis') . '.pdf';
         
         return $pdf->download($filename);
     }
