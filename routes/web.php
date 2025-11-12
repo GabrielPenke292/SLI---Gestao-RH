@@ -127,6 +127,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Negotiation routes
     Route::get('/negotiations', [NegotiationsController::class, 'index'])->name('negotiations.index');
+    Route::get('/negotiations/finished-processes', [NegotiationsController::class, 'getFinishedProcesses'])->name('negotiations.finished.processes');
+    Route::get('/negotiations/{processId}/approved-candidates', [NegotiationsController::class, 'getApprovedCandidates'])->name('negotiations.approved.candidates');
+    Route::post('/negotiations/{processId}/proposals', [NegotiationsController::class, 'storeProposal'])->name('negotiations.proposals.store');
+    Route::get('/negotiations/{processId}/proposals', [NegotiationsController::class, 'getProposals'])->name('negotiations.proposals');
+    Route::post('/negotiations/{processId}/proposals/{proposalId}/accept', [NegotiationsController::class, 'acceptProposal'])->name('negotiations.proposals.accept');
+    Route::post('/negotiations/{processId}/proposals/{proposalId}/reject', [NegotiationsController::class, 'rejectProposal'])->name('negotiations.proposals.reject');
+    Route::post('/negotiations/{processId}/proposals/{proposalId}/counter', [NegotiationsController::class, 'createCounterProposal'])->name('negotiations.proposals.counter');
 
     // Exam routes
     Route::get('/exams', [ExamsController::class, 'index'])->name('exams.index');
