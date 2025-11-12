@@ -92,6 +92,10 @@
                                     <span class="badge bg-primary me-2" style="width: 20px; height: 20px;"></span>
                                     <small>Eventos Personalizados</small>
                                 </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-success me-2" style="width: 20px; height: 20px;"></span>
+                                    <small>Exames Admissionais</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -299,7 +303,7 @@
                 const extendedProps = event.extendedProps;
                 
             currentEvent = {
-                id: extendedProps.event_id || null,
+                id: extendedProps.event_id || extendedProps.exam_id || null,
                 type: extendedProps.type,
                 title: event.title,
                 start: event.start,
@@ -309,6 +313,17 @@
                 worker_id: extendedProps.worker_id || null,
                 worker_name: extendedProps.worker_name || null,
                 years: extendedProps.years || null,
+                // Dados do exame admissional
+                exam_id: extendedProps.exam_id || null,
+                candidate_name: extendedProps.candidate_name || null,
+                candidate_email: extendedProps.candidate_email || null,
+                candidate_phone: extendedProps.candidate_phone || null,
+                process_number: extendedProps.process_number || null,
+                vacancy_title: extendedProps.vacancy_title || null,
+                clinic_name: extendedProps.clinic_name || null,
+                clinic_phone: extendedProps.clinic_phone || null,
+                exam_time: extendedProps.exam_time || null,
+                notes: extendedProps.notes || null,
             };
 
                 // Se for evento customizado, permitir editar/excluir
@@ -456,21 +471,68 @@
             html += '<div class="row">';
             html += '<div class="col-12 mb-2">';
             html += '<strong>Data:</strong> ' + formatDate(event.start);
+            if (event.exam_time) {
+                html += ' às ' + event.exam_time;
+            }
             if (event.end && event.start.toDateString() !== event.end.toDateString()) {
                 html += ' até ' + formatDate(event.end);
             }
             html += '</div>';
             
-            if (event.worker_name) {
+            // Informações específicas para exames admissionais
+            if (event.type === 'admissional_exam') {
+                html += '<div class="col-12 mb-3"><hr></div>';
+                html += '<div class="col-12 mb-2"><strong>Dados do Candidato:</strong></div>';
                 html += '<div class="col-12 mb-2">';
-                html += '<strong>Funcionário:</strong> ' + event.worker_name;
+                html += '<strong>Nome:</strong> ' + (event.candidate_name || 'N/A');
                 html += '</div>';
-            }
-            
-            if (event.years !== null) {
+                if (event.candidate_email) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>E-mail:</strong> ' + event.candidate_email;
+                    html += '</div>';
+                }
+                if (event.candidate_phone) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Telefone:</strong> ' + event.candidate_phone;
+                    html += '</div>';
+                }
+                html += '<div class="col-12 mb-3"><hr></div>';
+                html += '<div class="col-12 mb-2"><strong>Dados do Processo e Vaga:</strong></div>';
                 html += '<div class="col-12 mb-2">';
-                html += '<strong>Anos:</strong> ' + event.years;
+                html += '<strong>Processo:</strong> ' + (event.process_number || 'N/A');
                 html += '</div>';
+                html += '<div class="col-12 mb-2">';
+                html += '<strong>Vaga:</strong> ' + (event.vacancy_title || 'N/A');
+                html += '</div>';
+                html += '<div class="col-12 mb-3"><hr></div>';
+                html += '<div class="col-12 mb-2"><strong>Dados da Clínica:</strong></div>';
+                html += '<div class="col-12 mb-2">';
+                html += '<strong>Clínica:</strong> ' + (event.clinic_name || 'N/A');
+                html += '</div>';
+                if (event.clinic_phone) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Telefone:</strong> ' + event.clinic_phone;
+                    html += '</div>';
+                }
+                if (event.notes) {
+                    html += '<div class="col-12 mb-3"><hr></div>';
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Observações:</strong><br>' + event.notes;
+                    html += '</div>';
+                }
+            } else {
+                // Informações para outros tipos de eventos
+                if (event.worker_name) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Funcionário:</strong> ' + event.worker_name;
+                    html += '</div>';
+                }
+                
+                if (event.years !== null) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Anos:</strong> ' + event.years;
+                    html += '</div>';
+                }
             }
             
             html += '</div>';

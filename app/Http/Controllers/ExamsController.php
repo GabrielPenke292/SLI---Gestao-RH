@@ -7,14 +7,24 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Clinic;
+use App\Models\AdmissionalExam;
+use App\Models\Candidate;
+use App\Models\SelectionProcess;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ExamsController extends Controller
 {
+    
     public function index()
     {
         return view('exams.index');
     }
-
+    
+    public function admissionals()
+    {
+        return view('exams.admissionals');
+    }
+    
     public function clinics()
     {
         return view('exams.clinics');
@@ -226,5 +236,222 @@ class ExamsController extends Controller
                 'message' => 'Erro ao excluir clínica: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Buscar todos os exames admissionais
+     */
+    public function getAdmissionalExamsData(): JsonResponse
+    {
+        $exams = AdmissionalExam::whereNull('deleted_at')
+            ->with(['candidate', 'selectionProcess.vacancy', 'clinic'])
+            ->orderBy('exam_date', 'desc')
+            ->orderBy('exam_time', 'desc')
+            ->get()
+            ->map(function($exam) {
+                return [
+                    'admissional_exam_id' => $exam->admissional_exam_id,
+                    'candidate_name' => $exam->candidate->candidate_name ?? '-',
+                    'process_number' => $exam->selectionProcess->process_number ?? '-',
+                    'vacancy_title' => $exam->selectionProcess->vacancy->vacancy_title ?? '-',
+                    'clinic_name' => $exam->clinic->corporate_name ?? '-',
+                    'exam_date' => $exam->exam_date?->format('d/m/Y') ?? '-',
+                    'exam_time' => $exam->exam_time ? \Carbon\Carbon::parse($exam->exam_time)->format('H:i') : '-',
+                    'status' => $exam->status,
+                    'created_at' => $exam->created_at?->format('d/m/Y H:i') ?? '-',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $exams
+        ]);
+    }
+
+    /**
+     * Buscar candidatos aprovados (de todos os processos)
+     */
+    public function getApprovedCandidates(): JsonResponse
+    {
+        $candidates = DB::table('selection_process_candidates')
+            ->where('selection_process_candidates.status', 'aprovado')
+            ->join('candidates', 'selection_process_candidates.candidate_id', '=', 'candidates.candidate_id')
+            ->join('selection_processes', 'selection_process_candidates.selection_process_id', '=', 'selection_processes.selection_process_id')
+            ->leftJoin('vacancies', 'selection_processes.vacancy_id', '=', 'vacancies.vacancy_id')
+            ->select(
+                'candidates.candidate_id',
+                'candidates.candidate_name',
+                'candidates.candidate_email',
+                'candidates.candidate_phone',
+                'selection_processes.selection_process_id',
+                'selection_processes.process_number',
+                'vacancies.vacancy_title'
+            )
+            ->whereNull('selection_processes.deleted_at')
+            ->whereNull('candidates.deleted_at')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'candidate_id' => $item->candidate_id,
+                    'candidate_name' => $item->candidate_name,
+                    'candidate_email' => $item->candidate_email ?? '-',
+                    'candidate_phone' => $item->candidate_phone ?? '-',
+                    'selection_process_id' => $item->selection_process_id,
+                    'process_number' => $item->process_number,
+                    'vacancy_title' => $item->vacancy_title ?? 'N/A',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $candidates
+        ]);
+    }
+
+    /**
+     * Buscar clínicas ativas
+     */
+    public function getActiveClinics(): JsonResponse
+    {
+        $clinics = Clinic::whereNull('deleted_at')
+            ->where('is_active', true)
+            ->orderBy('corporate_name', 'asc')
+            ->get()
+            ->map(function($clinic) {
+                return [
+                    'clinic_id' => $clinic->clinic_id,
+                    'corporate_name' => $clinic->corporate_name,
+                    'trade_name' => $clinic->trade_name ?? $clinic->corporate_name,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $clinics
+        ]);
+    }
+
+    /**
+     * Criar novo agendamento de exame
+     */
+    public function storeAdmissionalExam(Request $request): JsonResponse
+    {
+        $request->validate([
+            'candidate_id' => 'required|integer|exists:candidates,candidate_id',
+            'selection_process_id' => 'required|integer|exists:selection_processes,selection_process_id',
+            'clinic_id' => 'required|integer|exists:clinics,clinic_id',
+            'exam_date' => 'required|date',
+            'exam_time' => 'nullable|date_format:H:i',
+            'notes' => 'nullable|string',
+        ]);
+
+        try {
+            $user = Auth::user();
+
+            // Verificar se candidato está aprovado no processo
+            $pivot = DB::table('selection_process_candidates')
+                ->where('selection_process_id', $request->input('selection_process_id'))
+                ->where('candidate_id', $request->input('candidate_id'))
+                ->where('status', 'aprovado')
+                ->first();
+
+            if (!$pivot) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Candidato não está aprovado neste processo seletivo.'
+                ], 400);
+            }
+
+            $exam = AdmissionalExam::create([
+                'candidate_id' => $request->input('candidate_id'),
+                'selection_process_id' => $request->input('selection_process_id'),
+                'clinic_id' => $request->input('clinic_id'),
+                'exam_date' => $request->input('exam_date'),
+                'exam_time' => $request->input('exam_time') ? \Carbon\Carbon::parse($request->input('exam_time'))->format('H:i:s') : null,
+                'status' => 'agendado',
+                'notes' => $request->input('notes'),
+                'created_at' => now(),
+                'created_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Exame agendado com sucesso!',
+                'data' => $exam
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao agendar exame: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Atualizar status do exame
+     */
+    public function updateAdmissionalExamStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'status' => 'required|in:agendado,cancelado,finalizado',
+            'cancellation_reason' => 'nullable|string|required_if:status,cancelado',
+            'exam_result' => 'nullable|string',
+        ]);
+
+        $exam = AdmissionalExam::whereNull('deleted_at')->findOrFail($id);
+
+        try {
+            $user = Auth::user();
+
+            $updateData = [
+                'status' => $request->input('status'),
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ];
+
+            if ($request->input('status') === 'cancelado') {
+                $updateData['cancellation_reason'] = $request->input('cancellation_reason');
+            }
+
+            if ($request->input('status') === 'finalizado') {
+                $updateData['exam_result'] = $request->input('exam_result');
+            }
+
+            $exam->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status do exame atualizado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao atualizar status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Gerar PDF com informações do candidato e função
+     */
+    public function generateExamPDF($id)
+    {
+        $exam = AdmissionalExam::whereNull('deleted_at')
+            ->with(['candidate', 'selectionProcess.vacancy', 'clinic'])
+            ->findOrFail($id);
+
+        $data = [
+            'exam' => $exam,
+            'candidate' => $exam->candidate,
+            'process' => $exam->selectionProcess,
+            'vacancy' => $exam->selectionProcess->vacancy ?? null,
+            'clinic' => $exam->clinic,
+        ];
+
+        $pdf = Pdf::loadView('exams.pdf.exam-document', $data);
+        
+        $filename = 'exame_admissional_' . $exam->candidate->candidate_name . '_' . date('YmdHis') . '.pdf';
+        
+        return $pdf->download($filename);
     }
 }

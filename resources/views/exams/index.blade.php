@@ -13,7 +13,7 @@
                     
                 <div class="row">
                         <div class="col-md-3 mb-3 p-3">
-                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                            <a href="{{ route('exams.admissionals') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-file-alt me-2"></i>Exames Admissionais
                             </a>
                         </div>

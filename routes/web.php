@@ -137,6 +137,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Exam routes
     Route::get('/exams', [ExamsController::class, 'index'])->name('exams.index');
+    Route::get('/exams/admissionals', [ExamsController::class, 'admissionals'])->name('exams.admissionals');
+    Route::get('/exams/admissionals/data', [ExamsController::class, 'getAdmissionalExamsData'])->name('exams.admissionals.data');
+    Route::get('/exams/admissionals/approved-candidates', [ExamsController::class, 'getApprovedCandidates'])->name('exams.admissionals.approved.candidates');
+    Route::get('/exams/admissionals/active-clinics', [ExamsController::class, 'getActiveClinics'])->name('exams.admissionals.active.clinics');
+    Route::post('/exams/admissionals', [ExamsController::class, 'storeAdmissionalExam'])->name('exams.admissionals.store');
+    Route::put('/exams/admissionals/{id}/status', [ExamsController::class, 'updateAdmissionalExamStatus'])->name('exams.admissionals.update.status');
+    Route::get('/exams/admissionals/{id}/pdf', [ExamsController::class, 'generateExamPDF'])->name('exams.admissionals.pdf');
     Route::get('/exams/clinics', [ExamsController::class, 'clinics'])->name('exams.clinics');
     Route::get('/exams/clinics/data', [ExamsController::class, 'getClinicsData'])->name('exams.clinics.data');
     Route::post('/exams/clinics', [ExamsController::class, 'storeClinic'])->name('exams.clinics.store');

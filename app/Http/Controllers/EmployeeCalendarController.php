@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Models\CalendarEvent;
 use App\Models\Worker;
+use App\Models\AdmissionalExam;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -163,6 +164,65 @@ class EmployeeCalendarController extends Controller
                     ];
                 }
             }
+        }
+
+        // Buscar exames admissionais agendados
+        $admissionalExams = AdmissionalExam::whereNull('deleted_at')
+            ->where('status', 'agendado')
+            ->whereBetween('exam_date', [$start, $end])
+            ->with(['candidate', 'selectionProcess.vacancy', 'clinic'])
+            ->get();
+
+        foreach ($admissionalExams as $exam) {
+            $examDate = $exam->exam_date->format('Y-m-d');
+            
+            // Tratar o horário do exame
+            $examTime = null;
+            $examTimeFormatted = null;
+            if ($exam->exam_time) {
+                // Se for string, fazer parse; se já for objeto Carbon/DateTime, usar diretamente
+                if (is_string($exam->exam_time)) {
+                    try {
+                        $timeObj = \Carbon\Carbon::parse($exam->exam_time);
+                        $examTime = $timeObj->format('H:i:s');
+                        $examTimeFormatted = $timeObj->format('H:i');
+                    } catch (\Exception $e) {
+                        // Se falhar, tentar usar diretamente como string
+                        $examTime = $exam->exam_time;
+                        $examTimeFormatted = substr($exam->exam_time, 0, 5);
+                    }
+                } else {
+                    $examTime = $exam->exam_time->format('H:i:s');
+                    $examTimeFormatted = $exam->exam_time->format('H:i');
+                }
+            }
+            
+            $title = '🏥 Exame: ' . ($exam->candidate->candidate_name ?? 'N/A');
+            if ($exam->clinic) {
+                $title .= ' - ' . $exam->clinic->corporate_name;
+            }
+            
+            $events[] = [
+                'id' => 'exam_' . $exam->admissional_exam_id,
+                'title' => $title,
+                'start' => $examDate . ($examTime ? 'T' . $examTime : ''),
+                'allDay' => !$examTime,
+                'backgroundColor' => '#28a745',
+                'borderColor' => '#28a745',
+                'extendedProps' => [
+                    'type' => 'admissional_exam',
+                    'exam_id' => $exam->admissional_exam_id,
+                    'candidate_name' => $exam->candidate->candidate_name ?? 'N/A',
+                    'candidate_email' => $exam->candidate->candidate_email ?? null,
+                    'candidate_phone' => $exam->candidate->candidate_phone ?? null,
+                    'process_number' => $exam->selectionProcess->process_number ?? 'N/A',
+                    'vacancy_title' => $exam->selectionProcess->vacancy->vacancy_title ?? 'N/A',
+                    'clinic_name' => $exam->clinic->corporate_name ?? 'N/A',
+                    'clinic_phone' => $exam->clinic->phone ?? null,
+                    'exam_time' => $examTimeFormatted,
+                    'notes' => $exam->notes ?? null,
+                ],
+            ];
         }
 
         return response()->json($events);
