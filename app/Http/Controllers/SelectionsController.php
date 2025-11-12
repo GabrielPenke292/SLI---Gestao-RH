@@ -1312,4 +1312,172 @@ class SelectionsController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Aprovar candidato no processo seletivo (apenas na última etapa)
+     */
+    public function approveCandidate(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'candidate_id' => 'required|integer|exists:candidates,candidate_id',
+            'observation' => 'nullable|string|max:1000',
+        ]);
+
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        $candidateId = $request->input('candidate_id');
+        $observation = $request->input('observation');
+
+        // Verificar se o candidato está vinculado ao processo
+        $pivot = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $candidateId)
+            ->first();
+
+        if (!$pivot) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato não está vinculado a este processo seletivo.'
+            ], 404);
+        }
+
+        // Verificar se está na última etapa
+        $steps = $process->steps ?? [];
+        if (empty($steps)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Processo seletivo não possui etapas definidas.'
+            ], 400);
+        }
+
+        $currentStep = $pivot->step ?? '';
+        $lastStep = end($steps);
+
+        if ($currentStep !== $lastStep) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A aprovação só pode ser realizada quando o candidato está na última etapa do processo.'
+            ], 400);
+        }
+
+        // Verificar se já foi aprovado ou reprovado
+        if ($pivot->status === 'aprovado') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato já foi aprovado neste processo.'
+            ], 400);
+        }
+
+        if ($pivot->status === 'reprovado') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato foi reprovado e não pode ser aprovado.'
+            ], 400);
+        }
+
+        try {
+            $user = Auth::user();
+            
+            // Atualizar status e dados de aprovação
+            DB::table('selection_process_candidates')
+                ->where('selection_process_id', $id)
+                ->where('candidate_id', $candidateId)
+                ->update([
+                    'status' => 'aprovado',
+                    'approval_observation' => $observation,
+                    'approved_at' => now(),
+                    'approved_by' => $user->user_name ?? 'system',
+                    'updated_at' => now(),
+                    'updated_by' => $user->user_name ?? 'system',
+                ]);
+
+            // Registrar no log de atividades
+            ActivityLogger::logCandidateApproved($candidateId, $id, $currentStep, $observation);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidato aprovado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao aprovar candidato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reprovar candidato no processo seletivo (em qualquer etapa)
+     */
+    public function rejectCandidate(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'candidate_id' => 'required|integer|exists:candidates,candidate_id',
+            'observation' => 'nullable|string|max:1000',
+        ]);
+
+        $process = SelectionProcess::whereNull('deleted_at')->findOrFail($id);
+        $candidateId = $request->input('candidate_id');
+        $observation = $request->input('observation');
+
+        // Verificar se o candidato está vinculado ao processo
+        $pivot = DB::table('selection_process_candidates')
+            ->where('selection_process_id', $id)
+            ->where('candidate_id', $candidateId)
+            ->first();
+
+        if (!$pivot) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato não está vinculado a este processo seletivo.'
+            ], 404);
+        }
+
+        $currentStep = $pivot->step ?? '';
+
+        // Verificar se já foi aprovado
+        if ($pivot->status === 'aprovado') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato já foi aprovado e não pode ser reprovado.'
+            ], 400);
+        }
+
+        // Verificar se já foi reprovado
+        if ($pivot->status === 'reprovado') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidato já foi reprovado neste processo.'
+            ], 400);
+        }
+
+        try {
+            $user = Auth::user();
+            
+            // Atualizar status e dados de reprovação
+            DB::table('selection_process_candidates')
+                ->where('selection_process_id', $id)
+                ->where('candidate_id', $candidateId)
+                ->update([
+                    'status' => 'reprovado',
+                    'rejection_observation' => $observation,
+                    'rejected_at' => now(),
+                    'rejected_by' => $user->user_name ?? 'system',
+                    'updated_at' => now(),
+                    'updated_by' => $user->user_name ?? 'system',
+                ]);
+
+            // Registrar no log de atividades
+            ActivityLogger::logCandidateRejected($candidateId, $id, $currentStep, $observation);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidato reprovado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao reprovar candidato: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

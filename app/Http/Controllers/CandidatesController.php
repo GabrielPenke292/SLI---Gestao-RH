@@ -238,6 +238,77 @@ class CandidatesController extends Controller
             ];
         }
         
+        // Eventos: Aprovação e Reprovação (buscar do log de atividades)
+        $approvalLogs = \App\Models\ActivityLog::where('log_type', 'candidate_approved')
+            ->where('entity_type', 'Candidate')
+            ->where('entity_id', $candidateId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->filter(function($log) use ($processId) {
+                $metadata = $log->metadata ?? [];
+                return isset($metadata['process_id']) && $metadata['process_id'] == $processId;
+            });
+        
+        foreach ($approvalLogs as $approvalLog) {
+            if (!$approvalLog->created_at) {
+                continue;
+            }
+            
+            $metadata = $approvalLog->metadata ?? [];
+            $step = $metadata['step'] ?? 'Etapa desconhecida';
+            $observation = $metadata['observation'] ?? null;
+            
+            $description = "<strong>Etapa:</strong> {$step}";
+            if ($observation) {
+                $description .= "<br><strong>Observação:</strong> \"{$observation}\"";
+            }
+            
+            $activities[] = [
+                'date' => $approvalLog->created_at->format('d/m/Y H:i'),
+                'title' => '✅ Candidato Aprovado',
+                'description' => $description,
+                'icon' => 'fa-check-circle',
+                'color' => 'success',
+                'status' => 'completed',
+                'highlight' => true // Destacar na timeline
+            ];
+        }
+        
+        $rejectionLogs = \App\Models\ActivityLog::where('log_type', 'candidate_rejected')
+            ->where('entity_type', 'Candidate')
+            ->where('entity_id', $candidateId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->filter(function($log) use ($processId) {
+                $metadata = $log->metadata ?? [];
+                return isset($metadata['process_id']) && $metadata['process_id'] == $processId;
+            });
+        
+        foreach ($rejectionLogs as $rejectionLog) {
+            if (!$rejectionLog->created_at) {
+                continue;
+            }
+            
+            $metadata = $rejectionLog->metadata ?? [];
+            $step = $metadata['step'] ?? 'Etapa desconhecida';
+            $observation = $metadata['observation'] ?? null;
+            
+            $description = "<strong>Etapa:</strong> {$step}";
+            if ($observation) {
+                $description .= "<br><strong>Observação:</strong> \"{$observation}\"";
+            }
+            
+            $activities[] = [
+                'date' => $rejectionLog->created_at->format('d/m/Y H:i'),
+                'title' => '❌ Candidato Reprovado',
+                'description' => $description,
+                'icon' => 'fa-times-circle',
+                'color' => 'danger',
+                'status' => 'completed',
+                'highlight' => true // Destacar na timeline
+            ];
+        }
+        
         // Ordenar atividades por data
         usort($activities, function($a, $b) {
             return strtotime(str_replace('/', '-', $a['date'])) <=> strtotime(str_replace('/', '-', $b['date']));

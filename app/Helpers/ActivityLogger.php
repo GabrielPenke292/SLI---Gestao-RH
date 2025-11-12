@@ -21,6 +21,8 @@ class ActivityLogger
     const TYPE_CANDIDATE_CREATED = 'candidate_created';
     const TYPE_CANDIDATE_UPDATED = 'candidate_updated';
     const TYPE_CANDIDATE_NOTE_ADDED = 'candidate_note_added';
+    const TYPE_CANDIDATE_APPROVED = 'candidate_approved';
+    const TYPE_CANDIDATE_REJECTED = 'candidate_rejected';
 
     /**
      * Registrar uma atividade no log
@@ -202,6 +204,94 @@ class ActivityLogger
             'Candidate',
             $candidateId,
             'Candidato movido entre etapas',
+            $description,
+            $metadata
+        );
+    }
+
+    /**
+     * Registrar aprovação de candidato no processo seletivo
+     *
+     * @param int $candidateId ID do candidato
+     * @param int $processId ID do processo seletivo
+     * @param string $step Etapa em que foi aprovado
+     * @param string|null $observation Observação da aprovação
+     * @return ActivityLog
+     */
+    public static function logCandidateApproved(int $candidateId, int $processId, string $step, ?string $observation = null): ActivityLog
+    {
+        $candidate = \App\Models\Candidate::find($candidateId);
+        $process = \App\Models\SelectionProcess::find($processId);
+        
+        $description = sprintf(
+            'Candidato "%s" foi aprovado na etapa "%s" do processo seletivo "%s"',
+            $candidate->candidate_name ?? 'N/A',
+            $step,
+            $process->process_number ?? 'N/A'
+        );
+        
+        if ($observation) {
+            $description .= '. Observação: ' . $observation;
+        }
+        
+        $metadata = [
+            'candidate_id' => $candidateId,
+            'candidate_name' => $candidate->candidate_name ?? null,
+            'process_id' => $processId,
+            'process_number' => $process->process_number ?? null,
+            'step' => $step,
+            'observation' => $observation,
+        ];
+        
+        return self::log(
+            self::TYPE_CANDIDATE_APPROVED,
+            'Candidate',
+            $candidateId,
+            'Candidato aprovado no processo seletivo',
+            $description,
+            $metadata
+        );
+    }
+
+    /**
+     * Registrar reprovação de candidato no processo seletivo
+     *
+     * @param int $candidateId ID do candidato
+     * @param int $processId ID do processo seletivo
+     * @param string $step Etapa em que foi reprovado
+     * @param string|null $observation Observação da reprovação
+     * @return ActivityLog
+     */
+    public static function logCandidateRejected(int $candidateId, int $processId, string $step, ?string $observation = null): ActivityLog
+    {
+        $candidate = \App\Models\Candidate::find($candidateId);
+        $process = \App\Models\SelectionProcess::find($processId);
+        
+        $description = sprintf(
+            'Candidato "%s" foi reprovado na etapa "%s" do processo seletivo "%s"',
+            $candidate->candidate_name ?? 'N/A',
+            $step,
+            $process->process_number ?? 'N/A'
+        );
+        
+        if ($observation) {
+            $description .= '. Observação: ' . $observation;
+        }
+        
+        $metadata = [
+            'candidate_id' => $candidateId,
+            'candidate_name' => $candidate->candidate_name ?? null,
+            'process_id' => $processId,
+            'process_number' => $process->process_number ?? null,
+            'step' => $step,
+            'observation' => $observation,
+        ];
+        
+        return self::log(
+            self::TYPE_CANDIDATE_REJECTED,
+            'Candidate',
+            $candidateId,
+            'Candidato reprovado no processo seletivo',
             $description,
             $metadata
         );

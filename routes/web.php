@@ -111,6 +111,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/selections/{id}/step-interactions', [SelectionsController::class, 'storeStepInteraction'])->name('selections.step.interactions.store');
     Route::put('/selections/{id}/step-interactions/{interactionId}', [SelectionsController::class, 'updateStepInteraction'])->name('selections.step.interactions.update');
     Route::delete('/selections/{id}/step-interactions/{interactionId}', [SelectionsController::class, 'deleteStepInteraction'])->name('selections.step.interactions.delete');
+    Route::post('/selections/{id}/candidates/approve', [SelectionsController::class, 'approveCandidate'])->name('selections.candidate.approve');
+    Route::post('/selections/{id}/candidates/reject', [SelectionsController::class, 'rejectCandidate'])->name('selections.candidate.reject');
 
     // Candidate routes
     Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates.index');

@@ -362,6 +362,10 @@
                                                                                             $currentStepIndex = array_search($step, $process->steps);
                                                                                             $hasPreviousStep = $currentStepIndex > 0;
                                                                                             $hasNextStep = $currentStepIndex < count($process->steps) - 1;
+                                                                                            $isLastStep = $currentStepIndex === count($process->steps) - 1;
+                                                                                            $candidateStatus = $candidate->pivot->status ?? 'pendente';
+                                                                                            $canApprove = $isLastStep && $candidateStatus === 'pendente';
+                                                                                            $canReject = $candidateStatus === 'pendente';
                                                                                         @endphp
                                                                                         @if($hasPreviousStep)
                                                                                             <button type="button" class="btn btn-sm btn-secondary btn-move-candidate" 
@@ -381,6 +385,24 @@
                                                                                                     data-direction="right"
                                                                                                     title="Mover para {{ $process->steps[$currentStepIndex + 1] }}">
                                                                                                 <i class="fas fa-arrow-right"></i>
+                                                                                            </button>
+                                                                                        @endif
+                                                                                        @if($canApprove)
+                                                                                            <button type="button" class="btn btn-sm btn-success btn-approve-candidate" 
+                                                                                                    data-candidate-id="{{ $candidate->candidate_id }}" 
+                                                                                                    data-candidate-name="{{ $candidate->candidate_name }}"
+                                                                                                    data-step="{{ $step }}"
+                                                                                                    title="Aprovar Candidato">
+                                                                                                <i class="fas fa-check-circle"></i>
+                                                                                            </button>
+                                                                                        @endif
+                                                                                        @if($canReject)
+                                                                                            <button type="button" class="btn btn-sm btn-danger btn-reject-candidate" 
+                                                                                                    data-candidate-id="{{ $candidate->candidate_id }}" 
+                                                                                                    data-candidate-name="{{ $candidate->candidate_name }}"
+                                                                                                    data-step="{{ $step }}"
+                                                                                                    title="Reprovar Candidato">
+                                                                                                <i class="fas fa-times-circle"></i>
                                                                                             </button>
                                                                                         @endif
                                                                                         <button type="button" class="btn btn-sm btn-danger btn-detach-candidate" data-candidate-id="{{ $candidate->candidate_id }}" data-step="{{ $candidate->pivot->step ?? '' }}" title="Desvincular da Etapa">
@@ -455,6 +477,88 @@
                 </button>
                 <button type="button" class="btn btn-warning" id="btnSaveNote">
                     <i class="fas fa-save me-1"></i>Salvar Observação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Aprovar Candidato -->
+<div class="modal fade" id="approveCandidateModal" tabindex="-1" aria-labelledby="approveCandidateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="approveCandidateModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>Aprovar Candidato
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="approveCandidateName" class="form-label">Candidato:</label>
+                    <input type="text" class="form-control" id="approveCandidateName" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="approveStep" class="form-label">Etapa:</label>
+                    <input type="text" class="form-control" id="approveStep" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="approvalObservation" class="form-label">Observação (opcional):</label>
+                    <textarea class="form-control" id="approvalObservation" rows="4" placeholder="Digite uma observação sobre a aprovação do candidato..."></textarea>
+                    <small class="form-text text-muted">Máximo de 1000 caracteres.</small>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Atenção:</strong> Esta ação só pode ser realizada quando o candidato está na última etapa do processo seletivo.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmApprove">
+                    <i class="fas fa-check-circle me-1"></i>Confirmar Aprovação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Reprovar Candidato -->
+<div class="modal fade" id="rejectCandidateModal" tabindex="-1" aria-labelledby="rejectCandidateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="rejectCandidateModalLabel">
+                    <i class="fas fa-times-circle me-2"></i>Reprovar Candidato
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="rejectCandidateName" class="form-label">Candidato:</label>
+                    <input type="text" class="form-control" id="rejectCandidateName" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="rejectStep" class="form-label">Etapa:</label>
+                    <input type="text" class="form-control" id="rejectStep" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="rejectionObservation" class="form-label">Observação (opcional):</label>
+                    <textarea class="form-control" id="rejectionObservation" rows="4" placeholder="Digite uma observação sobre a reprovação do candidato..."></textarea>
+                    <small class="form-text text-muted">Máximo de 1000 caracteres.</small>
+                </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Atenção:</strong> Esta ação pode ser realizada em qualquer etapa do processo seletivo.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmReject">
+                    <i class="fas fa-times-circle me-1"></i>Confirmar Reprovação
                 </button>
             </div>
         </div>
@@ -1121,6 +1225,122 @@
         });
 
         // Desvincular candidato
+        // ========== APROVAR CANDIDATO ==========
+        let currentApproveCandidateId = null;
+        let currentApproveStep = null;
+
+        $(document).on('click', '.btn-approve-candidate', function() {
+            currentApproveCandidateId = $(this).data('candidate-id');
+            const candidateName = $(this).data('candidate-name');
+            currentApproveStep = $(this).data('step');
+            
+            $('#approveCandidateName').val(candidateName);
+            $('#approveStep').val(currentApproveStep);
+            $('#approvalObservation').val('');
+            
+            $('#approveCandidateModal').modal('show');
+        });
+
+        $('#btnConfirmApprove').on('click', function() {
+            if (!currentApproveCandidateId) {
+                alert('Erro: ID do candidato não encontrado.');
+                return;
+            }
+            
+            const observation = $('#approvalObservation').val().trim();
+            
+            if (observation.length > 1000) {
+                alert('A observação não pode ter mais de 1000 caracteres.');
+                return;
+            }
+            
+            const btn = $(this);
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Aprovando...');
+            
+            $.ajax({
+                url: '{{ route("selections.candidate.approve", $process->selection_process_id) }}',
+                method: 'POST',
+                data: {
+                    candidate_id: currentApproveCandidateId,
+                    observation: observation,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#approveCandidateModal').modal('hide');
+                        alert('Candidato aprovado com sucesso!');
+                        location.reload(); // Recarregar para atualizar a tabela
+                    } else {
+                        alert('Erro: ' + (response.message || 'Não foi possível aprovar o candidato.'));
+                        btn.prop('disabled', false).html('<i class="fas fa-check-circle me-1"></i>Confirmar Aprovação');
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao aprovar candidato.';
+                    alert('Erro: ' + message);
+                    btn.prop('disabled', false).html('<i class="fas fa-check-circle me-1"></i>Confirmar Aprovação');
+                }
+            });
+        });
+
+        // ========== REPROVAR CANDIDATO ==========
+        let currentRejectCandidateId = null;
+        let currentRejectStep = null;
+
+        $(document).on('click', '.btn-reject-candidate', function() {
+            currentRejectCandidateId = $(this).data('candidate-id');
+            const candidateName = $(this).data('candidate-name');
+            currentRejectStep = $(this).data('step');
+            
+            $('#rejectCandidateName').val(candidateName);
+            $('#rejectStep').val(currentRejectStep);
+            $('#rejectionObservation').val('');
+            
+            $('#rejectCandidateModal').modal('show');
+        });
+
+        $('#btnConfirmReject').on('click', function() {
+            if (!currentRejectCandidateId) {
+                alert('Erro: ID do candidato não encontrado.');
+                return;
+            }
+            
+            const observation = $('#rejectionObservation').val().trim();
+            
+            if (observation.length > 1000) {
+                alert('A observação não pode ter mais de 1000 caracteres.');
+                return;
+            }
+            
+            const btn = $(this);
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Reprovando...');
+            
+            $.ajax({
+                url: '{{ route("selections.candidate.reject", $process->selection_process_id) }}',
+                method: 'POST',
+                data: {
+                    candidate_id: currentRejectCandidateId,
+                    observation: observation,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#rejectCandidateModal').modal('hide');
+                        alert('Candidato reprovado com sucesso!');
+                        location.reload(); // Recarregar para atualizar a tabela
+                    } else {
+                        alert('Erro: ' + (response.message || 'Não foi possível reprovar o candidato.'));
+                        btn.prop('disabled', false).html('<i class="fas fa-times-circle me-1"></i>Confirmar Reprovação');
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao reprovar candidato.';
+                    alert('Erro: ' + message);
+                    btn.prop('disabled', false).html('<i class="fas fa-times-circle me-1"></i>Confirmar Reprovação');
+                }
+            });
+        });
+
         $(document).on('click', '.btn-detach-candidate', function() {
             const candidateId = $(this).data('candidate-id');
             const step = $(this).data('step');

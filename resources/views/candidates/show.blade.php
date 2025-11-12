@@ -363,16 +363,20 @@
                         let activitiesHtml = '';
                         if (response.activities && response.activities.length > 0) {
                             response.activities.forEach(function(item) {
+                                // Adicionar classe especial para destacar aprovação/reprovação
+                                const highlightClass = item.highlight ? 'border border-3 shadow-sm' : '';
+                                const extraStyle = item.highlight ? 'font-weight: bold; font-size: 1.1em;' : '';
+                                
                                 activitiesHtml += `
-                                    <div class="timeline-item ${item.status}">
-                                        <div class="timeline-content ${item.color}">
+                                    <div class="timeline-item ${item.status} ${highlightClass}">
+                                        <div class="timeline-content ${item.color}" style="${extraStyle}">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <h6 class="mb-0">
+                                                <h6 class="mb-0" style="${extraStyle}">
                                                     <i class="fas ${item.icon} me-2"></i>${item.title}
                                                 </h6>
                                                 <small class="text-muted">${item.date}</small>
                                             </div>
-                                            <p class="mb-0">${item.description}</p>
+                                            <div class="mb-0">${item.description}</div>
                                         </div>
                                     </div>
                                 `;
