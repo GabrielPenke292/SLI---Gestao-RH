@@ -166,6 +166,42 @@
     </div>
 </div>
 
+<!-- Modal de Marcar Exame como Realizado -->
+<div class="modal fade" id="markPerformedModal" tabindex="-1" aria-labelledby="markPerformedModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="markPerformedModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>Marcar Exame como Realizado
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="markPerformedForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" id="performedExamId">
+                    
+                    <div class="mb-3">
+                        <label for="examFile" class="form-label">Anexar Exame (Opcional)</label>
+                        <input type="file" class="form-control" id="examFile" name="exam_file" accept=".pdf,.jpg,.jpeg,.png">
+                        <small class="form-text text-muted">Formatos aceitos: PDF, JPG, PNG (máx. 10MB)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="performedObservations" class="form-label">Observações</label>
+                        <textarea class="form-control" id="performedObservations" name="performed_observations" rows="3" placeholder="Observações sobre a realização do exame..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-1"></i>Marcar como Realizado
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -202,6 +238,11 @@
             exams.forEach(function(exam) {
                 const statusBadge = getStatusBadge(exam.status);
                 
+                let performedBadge = '';
+                if (exam.exam_performed) {
+                    performedBadge = '<span class="badge bg-success me-1">Realizado</span>';
+                }
+                
                 html += `
                     <tr>
                         <td>${exam.candidate_name}</td>
@@ -210,7 +251,7 @@
                         <td>${exam.clinic_name}</td>
                         <td>${exam.exam_date}</td>
                         <td>${exam.exam_time}</td>
-                        <td>${statusBadge}</td>
+                        <td>${statusBadge} ${performedBadge}</td>
                         <td>
                             <button class="btn btn-sm btn-info btn-generate-pdf" data-exam-id="${exam.admissional_exam_id}" title="Gerar PDF">
                                 <i class="fas fa-file-pdf"></i>
@@ -218,6 +259,17 @@
                             <button class="btn btn-sm btn-warning btn-update-status" data-exam-id="${exam.admissional_exam_id}" title="Atualizar Status">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            ${!exam.exam_performed ? `
+                                <button class="btn btn-sm btn-success btn-mark-performed" data-exam-id="${exam.admissional_exam_id}" title="Marcar como Realizado">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            ` : `
+                                ${exam.exam_file_name ? `
+                                    <button class="btn btn-sm btn-primary btn-download-file" data-exam-id="${exam.admissional_exam_id}" title="Baixar Arquivo">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                ` : ''}
+                            `}
                         </td>
                     </tr>
                 `;
@@ -407,6 +459,60 @@
         $(document).on('click', '.btn-generate-pdf', function() {
             const examId = $(this).data('exam-id');
             const url = '{{ route("exams.admissionals.pdf", ":id") }}'.replace(':id', examId);
+            window.open(url, '_blank');
+        });
+
+        // Marcar exame como realizado
+        $(document).on('click', '.btn-mark-performed', function() {
+            const examId = $(this).data('exam-id');
+            $('#performedExamId').val(examId);
+            $('#markPerformedForm')[0].reset();
+            $('#markPerformedModal').modal('show');
+        });
+
+        // Salvar marcação de exame realizado
+        $('#markPerformedForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const examId = $('#performedExamId').val();
+            if (!examId) {
+                return;
+            }
+
+            const formData = new FormData(this);
+            formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
+
+            $.ajax({
+                url: '{{ route("exams.admissionals.mark.performed", ":id") }}'.replace(':id', examId),
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        $('#markPerformedModal').modal('hide');
+                        alert(response.message);
+                        loadExams();
+                    } else {
+                        alert('Erro: ' + (response.message || 'Não foi possível marcar o exame como realizado.'));
+                    }
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Erro ao marcar exame como realizado.';
+                    if (xhr.responseJSON?.errors) {
+                        const errors = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                        alert('Erro de validação:\n' + errors);
+                    } else {
+                        alert('Erro: ' + message);
+                    }
+                }
+            });
+        });
+
+        // Download do arquivo do exame
+        $(document).on('click', '.btn-download-file', function() {
+            const examId = $(this).data('exam-id');
+            const url = '{{ route("exams.admissionals.download.file", ":id") }}'.replace(':id', examId);
             window.open(url, '_blank');
         });
 

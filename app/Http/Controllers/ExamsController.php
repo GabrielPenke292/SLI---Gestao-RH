@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Clinic;
 use App\Models\AdmissionalExam;
 use App\Models\DismissalExam;
@@ -266,6 +267,9 @@ class ExamsController extends Controller
                     'exam_date' => $exam->exam_date?->format('d/m/Y') ?? '-',
                     'exam_time' => $exam->exam_time ? \Carbon\Carbon::parse($exam->exam_time)->format('H:i') : '-',
                     'status' => $exam->status,
+                    'exam_performed' => $exam->exam_performed ?? false,
+                    'exam_file_name' => $exam->exam_file_name ?? null,
+                    'performed_at' => $exam->performed_at?->format('d/m/Y H:i') ?? null,
                     'created_at' => $exam->created_at?->format('d/m/Y H:i') ?? '-',
                 ];
             });
@@ -461,6 +465,78 @@ class ExamsController extends Controller
         $filename = 'exame_admissional_' . $exam->candidate->candidate_name . '_' . date('YmdHis') . '.pdf';
         
         return $pdf->download($filename);
+    }
+
+    /**
+     * Marcar exame admissional como realizado
+     */
+    public function markExamAsPerformed(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'exam_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', // 10MB max
+            'performed_observations' => 'nullable|string',
+        ]);
+
+        $exam = AdmissionalExam::whereNull('deleted_at')->findOrFail($id);
+
+        try {
+            $user = Auth::user();
+            
+            $updateData = [
+                'exam_performed' => true,
+                'performed_at' => now(),
+                'performed_by' => $user->user_name ?? 'system',
+                'performed_observations' => $request->input('performed_observations'),
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ];
+
+            // Upload do arquivo se fornecido
+            if ($request->hasFile('exam_file')) {
+                $file = $request->file('exam_file');
+                $fileName = 'exam_' . $exam->admissional_exam_id . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $filePath = $file->storeAs('admissional_exams', $fileName, 'public');
+                
+                $updateData['exam_file_path'] = $filePath;
+                $updateData['exam_file_name'] = $file->getClientOriginalName();
+            }
+
+            $exam->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Exame marcado como realizado com sucesso!',
+                'data' => [
+                    'exam_performed' => true,
+                    'exam_file_name' => $exam->exam_file_name,
+                    'performed_at' => $exam->performed_at?->format('d/m/Y H:i'),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao marcar exame como realizado: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download do arquivo do exame
+     */
+    public function downloadExamFile($id)
+    {
+        $exam = AdmissionalExam::whereNull('deleted_at')
+            ->where('exam_performed', true)
+            ->findOrFail($id);
+
+        if (!$exam->exam_file_path || !Storage::disk('public')->exists($exam->exam_file_path)) {
+            abort(404, 'Arquivo não encontrado');
+        }
+
+        $filePath = Storage::disk('public')->path($exam->exam_file_path);
+        $fileName = $exam->exam_file_name ?? 'exame.pdf';
+        
+        return response()->download($filePath, $fileName);
     }
 
     /**

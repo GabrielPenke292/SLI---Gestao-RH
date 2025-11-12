@@ -144,6 +144,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/exams/admissionals', [ExamsController::class, 'storeAdmissionalExam'])->name('exams.admissionals.store');
     Route::put('/exams/admissionals/{id}/status', [ExamsController::class, 'updateAdmissionalExamStatus'])->name('exams.admissionals.update.status');
     Route::get('/exams/admissionals/{id}/pdf', [ExamsController::class, 'generateExamPDF'])->name('exams.admissionals.pdf');
+    Route::post('/exams/admissionals/{id}/mark-performed', [ExamsController::class, 'markExamAsPerformed'])->name('exams.admissionals.mark.performed');
+    Route::get('/exams/admissionals/{id}/download-file', [ExamsController::class, 'downloadExamFile'])->name('exams.admissionals.download.file');
     Route::get('/exams/clinics', [ExamsController::class, 'clinics'])->name('exams.clinics');
     Route::get('/exams/clinics/data', [ExamsController::class, 'getClinicsData'])->name('exams.clinics.data');
     Route::post('/exams/clinics', [ExamsController::class, 'storeClinic'])->name('exams.clinics.store');
@@ -177,5 +179,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Training routes
     Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
-
+    Route::get('/training/contents', [TrainingController::class, 'contents'])->name('training.contents');
+    Route::get('/training/contents/data', [TrainingController::class, 'getContentsData'])->name('training.contents.data');
+    Route::get('/training/contents/categories', [TrainingController::class, 'getCategories'])->name('training.contents.categories');
+    Route::post('/training/contents', [TrainingController::class, 'store'])->name('training.contents.store');
+    Route::get('/training/contents/{id}', [TrainingController::class, 'getContent'])->name('training.contents.get');
+    Route::put('/training/contents/{id}', [TrainingController::class, 'update'])->name('training.contents.update');
+    Route::delete('/training/contents/{id}', [TrainingController::class, 'delete'])->name('training.contents.delete');
+    Route::get('/training/contents/{id}/download', [TrainingController::class, 'downloadFile'])->name('training.contents.download');
 });

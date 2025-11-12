@@ -45,6 +45,12 @@ class AdmissionalExam extends Model
         'cancellation_reason',
         'exam_result',
         'notes',
+        'exam_performed',
+        'exam_file_path',
+        'exam_file_name',
+        'performed_at',
+        'performed_by',
+        'performed_observations',
         'created_at',
         'created_by',
         'updated_at',
@@ -58,6 +64,8 @@ class AdmissionalExam extends Model
      */
     protected $casts = [
         'exam_date' => 'date',
+        'exam_performed' => 'boolean',
+        'performed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
