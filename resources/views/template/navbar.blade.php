@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
         <a class="navbar-brand" href="{{ route('dashboard') }}">   
-            <i class="fas fa-users-cog me-2"></i>HERO
+            <img src="{{ asset('logo.png') }}" alt="Logo" style="height:64px; margin-left: -30px;" class="">
         </a>
         <div class="navbar-nav ms-auto">
             <div class="nav-item dropdown">
