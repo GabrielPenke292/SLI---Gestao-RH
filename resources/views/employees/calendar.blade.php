@@ -96,6 +96,10 @@
                                     <span class="badge bg-success me-2" style="width: 20px; height: 20px;"></span>
                                     <small>Exames Admissionais</small>
                                 </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-danger me-2" style="width: 20px; height: 20px; background-color: #dc3545 !important;"></span>
+                                    <small>Exames Demissionais</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -324,6 +328,11 @@
                 clinic_phone: extendedProps.clinic_phone || null,
                 exam_time: extendedProps.exam_time || null,
                 notes: extendedProps.notes || null,
+                // Dados do exame demissional
+                worker_email: extendedProps.worker_email || null,
+                worker_document: extendedProps.worker_document || null,
+                department: extendedProps.department || null,
+                position: extendedProps.position || null,
             };
 
                 // Se for evento customizado, permitir editar/excluir
@@ -504,6 +513,49 @@
                 html += '<div class="col-12 mb-2">';
                 html += '<strong>Vaga:</strong> ' + (event.vacancy_title || 'N/A');
                 html += '</div>';
+                html += '<div class="col-12 mb-3"><hr></div>';
+                html += '<div class="col-12 mb-2"><strong>Dados da Clínica:</strong></div>';
+                html += '<div class="col-12 mb-2">';
+                html += '<strong>Clínica:</strong> ' + (event.clinic_name || 'N/A');
+                html += '</div>';
+                if (event.clinic_phone) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Telefone:</strong> ' + event.clinic_phone;
+                    html += '</div>';
+                }
+                if (event.notes) {
+                    html += '<div class="col-12 mb-3"><hr></div>';
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Observações:</strong><br>' + event.notes;
+                    html += '</div>';
+                }
+            } else if (event.type === 'dismissal_exam') {
+                // Informações específicas para exames demissionais
+                html += '<div class="col-12 mb-3"><hr></div>';
+                html += '<div class="col-12 mb-2"><strong>Dados do Funcionário:</strong></div>';
+                html += '<div class="col-12 mb-2">';
+                html += '<strong>Nome:</strong> ' + (event.worker_name || 'N/A');
+                html += '</div>';
+                if (event.worker_email) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>E-mail:</strong> ' + event.worker_email;
+                    html += '</div>';
+                }
+                if (event.worker_document) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>CPF:</strong> ' + event.worker_document;
+                    html += '</div>';
+                }
+                if (event.department) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Departamento:</strong> ' + event.department;
+                    html += '</div>';
+                }
+                if (event.position) {
+                    html += '<div class="col-12 mb-2">';
+                    html += '<strong>Cargo:</strong> ' + event.position;
+                    html += '</div>';
+                }
                 html += '<div class="col-12 mb-3"><hr></div>';
                 html += '<div class="col-12 mb-2"><strong>Dados da Clínica:</strong></div>';
                 html += '<div class="col-12 mb-2">';

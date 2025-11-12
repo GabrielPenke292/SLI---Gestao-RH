@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use App\Models\CalendarEvent;
 use App\Models\Worker;
 use App\Models\AdmissionalExam;
+use App\Models\DismissalExam;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -217,6 +218,67 @@ class EmployeeCalendarController extends Controller
                     'candidate_phone' => $exam->candidate->candidate_phone ?? null,
                     'process_number' => $exam->selectionProcess->process_number ?? 'N/A',
                     'vacancy_title' => $exam->selectionProcess->vacancy->vacancy_title ?? 'N/A',
+                    'clinic_name' => $exam->clinic->corporate_name ?? 'N/A',
+                    'clinic_phone' => $exam->clinic->phone ?? null,
+                    'exam_time' => $examTimeFormatted,
+                    'notes' => $exam->notes ?? null,
+                ],
+            ];
+        }
+
+        // Buscar exames demissionais agendados
+        $dismissalExams = DismissalExam::whereNull('deleted_at')
+            ->where('status', 'agendado')
+            ->whereBetween('exam_date', [$start, $end])
+            ->with(['worker.department', 'worker.roles', 'clinic'])
+            ->get();
+
+        foreach ($dismissalExams as $exam) {
+            $examDate = $exam->exam_date->format('Y-m-d');
+            
+            // Tratar o horário do exame
+            $examTime = null;
+            $examTimeFormatted = null;
+            if ($exam->exam_time) {
+                // Se for string, fazer parse; se já for objeto Carbon/DateTime, usar diretamente
+                if (is_string($exam->exam_time)) {
+                    try {
+                        $timeObj = \Carbon\Carbon::parse($exam->exam_time);
+                        $examTime = $timeObj->format('H:i:s');
+                        $examTimeFormatted = $timeObj->format('H:i');
+                    } catch (\Exception $e) {
+                        // Se falhar, tentar usar diretamente como string
+                        $examTime = $exam->exam_time;
+                        $examTimeFormatted = substr($exam->exam_time, 0, 5);
+                    }
+                } else {
+                    $examTime = $exam->exam_time->format('H:i:s');
+                    $examTimeFormatted = $exam->exam_time->format('H:i');
+                }
+            }
+            
+            $roles = $exam->worker->roles->pluck('role_name')->implode(', ');
+            
+            $title = '🏥 Exame Demissional: ' . ($exam->worker->worker_name ?? 'N/A');
+            if ($exam->clinic) {
+                $title .= ' - ' . $exam->clinic->corporate_name;
+            }
+            
+            $events[] = [
+                'id' => 'dismissal_exam_' . $exam->dismissal_exam_id,
+                'title' => $title,
+                'start' => $examDate . ($examTime ? 'T' . $examTime : ''),
+                'allDay' => !$examTime,
+                'backgroundColor' => '#dc3545',
+                'borderColor' => '#dc3545',
+                'extendedProps' => [
+                    'type' => 'dismissal_exam',
+                    'exam_id' => $exam->dismissal_exam_id,
+                    'worker_name' => $exam->worker->worker_name ?? 'N/A',
+                    'worker_email' => $exam->worker->worker_email ?? null,
+                    'worker_document' => $exam->worker->worker_document ?? null,
+                    'department' => $exam->worker->department?->department_name ?? 'N/A',
+                    'position' => $roles ?: 'N/A',
                     'clinic_name' => $exam->clinic->corporate_name ?? 'N/A',
                     'clinic_phone' => $exam->clinic->phone ?? null,
                     'exam_time' => $examTimeFormatted,
