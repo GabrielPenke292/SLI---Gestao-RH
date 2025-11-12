@@ -11,6 +11,7 @@ use App\Http\Controllers\EmployeeUploadController;
 use App\Http\Controllers\EmployeeCalendarController;
 use App\Http\Controllers\ExamsController;
 use App\Http\Controllers\LayoffsController;
+use App\Http\Controllers\MovementsController;
 use App\Http\Controllers\NegotiationsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacanciesController;
@@ -102,6 +103,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Layoffs routes
     Route::get('/layoffs', [LayoffsController::class, 'index'])->name('layoffs.index');
+
+    // Movements routes
+    Route::get('/movements', [MovementsController::class, 'index'])->name('movements.index');
 
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');

@@ -109,7 +109,7 @@
                         </div>
 
                         <div class="col-md-3 mb-3 p-3">
-                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                            <a href="{{ route('movements.index') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-exchange-alt me-2"></i>Movimentação
                             </a>
                         </div>
