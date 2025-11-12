@@ -16,6 +16,7 @@ use App\Http\Controllers\NegotiationsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacanciesController;
 use App\Http\Controllers\SelectionsController;
+use App\Http\Controllers\TrainingController;
 
 Route::get('/', [HomeController::class, 'index']);
 
@@ -106,6 +107,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Movements routes
     Route::get('/movements', [MovementsController::class, 'index'])->name('movements.index');
+
+    // Training routes
+    Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
 
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
