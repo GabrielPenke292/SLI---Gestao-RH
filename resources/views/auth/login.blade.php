@@ -12,7 +12,7 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <h1><i class="fas fa-users-cog me-2"></i>HERO</h1>
+                <img src="{{ asset('logo.png') }}" alt="Logo" style="height:128px;" class="mb-2">
                 <p>Human Engagement & Resource Optimizer</p>
             </div>
             
