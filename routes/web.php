@@ -9,6 +9,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeHistoryController;
 use App\Http\Controllers\EmployeeUploadController;
 use App\Http\Controllers\EmployeeCalendarController;
+use App\Http\Controllers\NegotiationsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacanciesController;
 use App\Http\Controllers\SelectionsController;
@@ -90,6 +91,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/candidates/{id}/edit', [CandidatesController::class, 'edit'])->name('candidates.edit');
     Route::put('/candidates/{id}', [CandidatesController::class, 'update'])->name('candidates.update');
     Route::delete('/candidates/{id}', [CandidatesController::class, 'destroy'])->name('candidates.destroy');
+
+    // Negotiation routes
+    Route::get('/negotiations', [NegotiationsController::class, 'index'])->name('negotiations.index');
 
     // Employee routes
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
