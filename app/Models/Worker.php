@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Role;
 use App\Models\Department;
+use App\Models\Layoff;
 
 class Worker extends Model
 {
@@ -88,5 +90,13 @@ class Worker extends Model
             'worker_id',
             'role_id'
         )->withPivot('worker_role_status', 'created_at', 'created_by');
+    }
+
+    /**
+     * Relacionamento: Um funcionário pode ter vários desligamentos
+     */
+    public function layoffs(): HasMany
+    {
+        return $this->hasMany(Layoff::class, 'worker_id', 'worker_id');
     }
 }

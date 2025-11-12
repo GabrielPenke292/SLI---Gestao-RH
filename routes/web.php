@@ -152,6 +152,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/exams/clinics/{id}', [ExamsController::class, 'deleteClinic'])->name('exams.clinics.delete');
     // Layoffs routes
     Route::get('/layoffs', [LayoffsController::class, 'index'])->name('layoffs.index');
+    Route::get('/layoffs/active-workers', [LayoffsController::class, 'getActiveWorkers'])->name('layoffs.active.workers');
+    Route::get('/layoffs/data', [LayoffsController::class, 'getLayoffsData'])->name('layoffs.data');
+    Route::post('/layoffs', [LayoffsController::class, 'store'])->name('layoffs.store');
+    Route::get('/layoffs/{id}', [LayoffsController::class, 'getLayoff'])->name('layoffs.get');
 
     // Movements routes
     Route::get('/movements', [MovementsController::class, 'index'])->name('movements.index');
