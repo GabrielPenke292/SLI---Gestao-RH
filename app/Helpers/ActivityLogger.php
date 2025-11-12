@@ -23,6 +23,9 @@ class ActivityLogger
     const TYPE_CANDIDATE_NOTE_ADDED = 'candidate_note_added';
     const TYPE_CANDIDATE_APPROVED = 'candidate_approved';
     const TYPE_CANDIDATE_REJECTED = 'candidate_rejected';
+    const TYPE_WORKER_MOVEMENT = 'worker_movement';
+    const TYPE_WORKER_MOVEMENT_APPROVED = 'worker_movement_approved';
+    const TYPE_WORKER_MOVEMENT_REJECTED = 'worker_movement_rejected';
 
     /**
      * Registrar uma atividade no log
@@ -292,6 +295,146 @@ class ActivityLogger
             'Candidate',
             $candidateId,
             'Candidato reprovado no processo seletivo',
+            $description,
+            $metadata
+        );
+    }
+
+    /**
+     * Registrar movimentação de cargo de funcionário
+     *
+     * @param int $movementId ID da movimentação
+     * @param int $workerId ID do funcionário
+     * @param string|null $oldDepartment Nome do departamento antigo
+     * @param string|null $newDepartment Nome do departamento novo
+     * @param string|null $oldRole Nome do cargo antigo
+     * @param string|null $newRole Nome do cargo novo
+     * @param string|null $observation Observação
+     * @return ActivityLog
+     */
+    public static function logWorkerMovement(int $movementId, int $workerId, ?string $oldDepartment = null, ?string $newDepartment = null, ?string $oldRole = null, ?string $newRole = null, ?string $observation = null): ActivityLog
+    {
+        $worker = \App\Models\Worker::find($workerId);
+        
+        $description = sprintf(
+            'Movimentação de cargo solicitada para "%s"',
+            $worker->worker_name ?? 'N/A'
+        );
+        
+        if ($oldDepartment && $newDepartment) {
+            $description .= sprintf(' - Departamento: %s → %s', $oldDepartment, $newDepartment);
+        }
+        
+        if ($oldRole && $newRole) {
+            $description .= sprintf(' - Cargo: %s → %s', $oldRole, $newRole);
+        }
+        
+        if ($observation) {
+            $description .= '. Observação: ' . $observation;
+        }
+        
+        $metadata = [
+            'movement_id' => $movementId,
+            'worker_id' => $workerId,
+            'worker_name' => $worker->worker_name ?? null,
+            'old_department' => $oldDepartment,
+            'new_department' => $newDepartment,
+            'old_role' => $oldRole,
+            'new_role' => $newRole,
+            'observation' => $observation,
+        ];
+        
+        return self::log(
+            self::TYPE_WORKER_MOVEMENT,
+            'Worker',
+            $workerId,
+            'Movimentação de cargo solicitada',
+            $description,
+            $metadata
+        );
+    }
+
+    /**
+     * Registrar aprovação de movimentação
+     *
+     * @param int $movementId ID da movimentação
+     * @param int $workerId ID do funcionário
+     * @param string|null $oldDepartment Nome do departamento antigo
+     * @param string|null $newDepartment Nome do departamento novo
+     * @param string|null $oldRole Nome do cargo antigo
+     * @param string|null $newRole Nome do cargo novo
+     * @return ActivityLog
+     */
+    public static function logWorkerMovementApproved(int $movementId, int $workerId, ?string $oldDepartment = null, ?string $newDepartment = null, ?string $oldRole = null, ?string $newRole = null): ActivityLog
+    {
+        $worker = \App\Models\Worker::find($workerId);
+        
+        $description = sprintf(
+            'Movimentação de cargo aprovada para "%s"',
+            $worker->worker_name ?? 'N/A'
+        );
+        
+        if ($oldDepartment && $newDepartment) {
+            $description .= sprintf(' - Departamento: %s → %s', $oldDepartment, $newDepartment);
+        }
+        
+        if ($oldRole && $newRole) {
+            $description .= sprintf(' - Cargo: %s → %s', $oldRole, $newRole);
+        }
+        
+        $metadata = [
+            'movement_id' => $movementId,
+            'worker_id' => $workerId,
+            'worker_name' => $worker->worker_name ?? null,
+            'old_department' => $oldDepartment,
+            'new_department' => $newDepartment,
+            'old_role' => $oldRole,
+            'new_role' => $newRole,
+        ];
+        
+        return self::log(
+            self::TYPE_WORKER_MOVEMENT_APPROVED,
+            'Worker',
+            $workerId,
+            'Movimentação de cargo aprovada',
+            $description,
+            $metadata
+        );
+    }
+
+    /**
+     * Registrar rejeição de movimentação
+     *
+     * @param int $movementId ID da movimentação
+     * @param int $workerId ID do funcionário
+     * @param string|null $rejectionReason Motivo da rejeição
+     * @return ActivityLog
+     */
+    public static function logWorkerMovementRejected(int $movementId, int $workerId, ?string $rejectionReason = null): ActivityLog
+    {
+        $worker = \App\Models\Worker::find($workerId);
+        
+        $description = sprintf(
+            'Movimentação de cargo rejeitada para "%s"',
+            $worker->worker_name ?? 'N/A'
+        );
+        
+        if ($rejectionReason) {
+            $description .= '. Motivo: ' . $rejectionReason;
+        }
+        
+        $metadata = [
+            'movement_id' => $movementId,
+            'worker_id' => $workerId,
+            'worker_name' => $worker->worker_name ?? null,
+            'rejection_reason' => $rejectionReason,
+        ];
+        
+        return self::log(
+            self::TYPE_WORKER_MOVEMENT_REJECTED,
+            'Worker',
+            $workerId,
+            'Movimentação de cargo rejeitada',
             $description,
             $metadata
         );

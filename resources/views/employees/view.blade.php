@@ -387,7 +387,87 @@
             </div>
         </div>
     </div>
+
+    <!-- Timeline de Movimentações -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Timeline de Movimentações</h5>
+                </div>
+                <div class="card-body">
+                    <div id="timelineContainer" class="mt-4">
+                        <div id="workerTimeline" class="timeline">
+                            <!-- Timeline será renderizada aqui -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+    $(document).ready(function() {
+        const workerId = {{ $worker->worker_id }};
+        
+        // Carregar timeline
+        function loadTimeline() {
+            $.ajax({
+                url: '{{ route("employees.timeline", ":id") }}'.replace(':id', workerId),
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        renderTimeline(response.activities);
+                    }
+                },
+                error: function() {
+                    $('#workerTimeline').html('<p class="text-muted text-center">Erro ao carregar timeline.</p>');
+                }
+            });
+        }
+
+        // Renderizar timeline
+        function renderTimeline(activities) {
+            const timeline = $('#workerTimeline');
+            
+            if (activities.length === 0) {
+                timeline.html('<p class="text-muted text-center">Nenhuma movimentação registrada.</p>');
+                return;
+            }
+
+            let html = '';
+            activities.forEach(function(activity) {
+                const highlightClass = activity.highlight ? 'border border-2 shadow-sm' : '';
+                const statusClass = activity.status === 'pending' ? 'border-warning' : 
+                                   activity.status === 'rejected' ? 'border-danger' : 
+                                   activity.status === 'completed' ? 'border-success' : '';
+                
+                html += `
+                    <div class="timeline-item ${highlightClass} ${statusClass}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 0.5rem;">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                <i class="fas ${activity.icon} fa-2x text-${activity.color}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">${activity.title}</h6>
+                                <p class="mb-1 text-muted"><small><i class="fas fa-clock me-1"></i>${activity.date}</small></p>
+                                <div class="mt-2">${activity.description}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            timeline.html(html);
+        }
+
+        // Carregar timeline ao iniciar
+        loadTimeline();
+    });
+</script>
+@endpush
 

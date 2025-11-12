@@ -108,6 +108,134 @@ class EmployeeController extends Controller
         return view('employees.view', compact('worker'));
     }
 
+    /**
+     * Retornar timeline de movimentações do funcionário
+     */
+    public function getWorkerTimeline(Request $request, $workerId): JsonResponse
+    {
+        $worker = Worker::whereNull('deleted_at')->findOrFail($workerId);
+        
+        $activities = [];
+        
+        // Buscar logs de movimentações
+        $movementLogs = \App\Models\ActivityLog::where('log_type', 'worker_movement')
+            ->where('entity_type', 'Worker')
+            ->where('entity_id', $workerId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        foreach ($movementLogs as $log) {
+            if (!$log->created_at) {
+                continue;
+            }
+            
+            $metadata = $log->metadata ?? [];
+            $oldDept = $metadata['old_department'] ?? null;
+            $newDept = $metadata['new_department'] ?? null;
+            $oldRole = $metadata['old_role'] ?? null;
+            $newRole = $metadata['new_role'] ?? null;
+            $observation = $metadata['observation'] ?? null;
+            
+            $description = '';
+            if ($oldDept && $newDept && $oldDept !== $newDept) {
+                $description .= "<strong>Departamento:</strong> {$oldDept} → {$newDept}<br>";
+            }
+            if ($oldRole && $newRole && $oldRole !== $newRole) {
+                $description .= "<strong>Cargo:</strong> {$oldRole} → {$newRole}<br>";
+            }
+            if ($observation) {
+                $description .= "<strong>Observação:</strong> {$observation}";
+            }
+            
+            $activities[] = [
+                'date' => $log->created_at->format('d/m/Y H:i'),
+                'title' => 'Movimentação Solicitada',
+                'description' => $description ?: 'Movimentação de cargo solicitada',
+                'icon' => 'fa-exchange-alt',
+                'color' => 'info',
+                'status' => 'pending'
+            ];
+        }
+        
+        // Buscar logs de aprovação
+        $approvalLogs = \App\Models\ActivityLog::where('log_type', 'worker_movement_approved')
+            ->where('entity_type', 'Worker')
+            ->where('entity_id', $workerId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        foreach ($approvalLogs as $log) {
+            if (!$log->created_at) {
+                continue;
+            }
+            
+            $metadata = $log->metadata ?? [];
+            $oldDept = $metadata['old_department'] ?? null;
+            $newDept = $metadata['new_department'] ?? null;
+            $oldRole = $metadata['old_role'] ?? null;
+            $newRole = $metadata['new_role'] ?? null;
+            
+            $description = '';
+            if ($oldDept && $newDept && $oldDept !== $newDept) {
+                $description .= "<strong>Departamento:</strong> {$oldDept} → {$newDept}<br>";
+            }
+            if ($oldRole && $newRole && $oldRole !== $newRole) {
+                $description .= "<strong>Cargo:</strong> {$oldRole} → {$newRole}";
+            }
+            
+            $activities[] = [
+                'date' => $log->created_at->format('d/m/Y H:i'),
+                'title' => '✅ Movimentação Aprovada',
+                'description' => $description ?: 'Movimentação de cargo aprovada e aplicada',
+                'icon' => 'fa-check-circle',
+                'color' => 'success',
+                'status' => 'completed',
+                'highlight' => true
+            ];
+        }
+        
+        // Buscar logs de rejeição
+        $rejectionLogs = \App\Models\ActivityLog::where('log_type', 'worker_movement_rejected')
+            ->where('entity_type', 'Worker')
+            ->where('entity_id', $workerId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        foreach ($rejectionLogs as $log) {
+            if (!$log->created_at) {
+                continue;
+            }
+            
+            $metadata = $log->metadata ?? [];
+            $rejectionReason = $metadata['rejection_reason'] ?? null;
+            
+            $description = 'Movimentação de cargo rejeitada';
+            if ($rejectionReason) {
+                $description .= "<br><strong>Motivo:</strong> {$rejectionReason}";
+            }
+            
+            $activities[] = [
+                'date' => $log->created_at->format('d/m/Y H:i'),
+                'title' => '❌ Movimentação Rejeitada',
+                'description' => $description,
+                'icon' => 'fa-times-circle',
+                'color' => 'danger',
+                'status' => 'rejected',
+                'highlight' => true
+            ];
+        }
+        
+        // Ordenar por data (mais recente primeiro)
+        usort($activities, function($a, $b) {
+            return strtotime(str_replace('/', '-', $b['date'])) - strtotime(str_replace('/', '-', $a['date']));
+        });
+        
+        return response()->json([
+            'success' => true,
+            'activities' => $activities
+        ]);
+    }
+
     public function edit($id)
     {
         $worker = Worker::with(['department', 'roles'])

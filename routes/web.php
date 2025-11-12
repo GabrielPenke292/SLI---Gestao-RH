@@ -165,6 +165,15 @@ Route::middleware(['auth'])->group(function () {
 
     // Movements routes
     Route::get('/movements', [MovementsController::class, 'index'])->name('movements.index');
+    Route::get('/movements/data', [MovementsController::class, 'getMovementsData'])->name('movements.data');
+    Route::get('/movements/workers', [MovementsController::class, 'getWorkers'])->name('movements.workers');
+    Route::get('/movements/workers/{id}', [MovementsController::class, 'getWorkerData'])->name('movements.worker.data');
+    Route::get('/movements/departments', [MovementsController::class, 'getDepartments'])->name('movements.departments');
+    Route::get('/movements/roles', [MovementsController::class, 'getRoles'])->name('movements.roles');
+    Route::post('/movements', [MovementsController::class, 'store'])->name('movements.store');
+    Route::post('/movements/{id}/approve', [MovementsController::class, 'approve'])->name('movements.approve');
+    Route::post('/movements/{id}/reject', [MovementsController::class, 'reject'])->name('movements.reject');
+    Route::get('/employees/{id}/timeline', [EmployeeController::class, 'getWorkerTimeline'])->name('employees.timeline');
 
     // Training routes
     Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
