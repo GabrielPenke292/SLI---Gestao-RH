@@ -137,7 +137,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Exam routes
     Route::get('/exams', [ExamsController::class, 'index'])->name('exams.index');
-
+    Route::get('/exams/clinics', [ExamsController::class, 'clinics'])->name('exams.clinics');
+    Route::get('/exams/clinics/data', [ExamsController::class, 'getClinicsData'])->name('exams.clinics.data');
+    Route::post('/exams/clinics', [ExamsController::class, 'storeClinic'])->name('exams.clinics.store');
+    Route::get('/exams/clinics/{id}', [ExamsController::class, 'getClinic'])->name('exams.clinics.get');
+    Route::put('/exams/clinics/{id}', [ExamsController::class, 'updateClinic'])->name('exams.clinics.update');
+    Route::delete('/exams/clinics/{id}', [ExamsController::class, 'deleteClinic'])->name('exams.clinics.delete');
     // Layoffs routes
     Route::get('/layoffs', [LayoffsController::class, 'index'])->name('layoffs.index');
 
