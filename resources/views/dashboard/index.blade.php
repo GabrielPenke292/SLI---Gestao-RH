@@ -103,7 +103,7 @@
                         </div>
 
                         <div class="col-md-3 mb-3 p-3">
-                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                            <a href="{{ route('layoffs.index') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-sign-out-alt me-2"></i>Desligamentos
                             </a>
                         </div>
