@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdministrationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CandidatesController;
 use App\Http\Controllers\HomeController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\ExamsController;
 use App\Http\Controllers\LayoffsController;
 use App\Http\Controllers\MovementsController;
 use App\Http\Controllers\NegotiationsController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacanciesController;
 use App\Http\Controllers\SelectionsController;
@@ -36,6 +38,28 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/permissions/check/{permissions}', [AuthController::class, 'hasAnyPermission'])->name('permissions.check');
     Route::get('/permissions/check-all/{permissions}', [AuthController::class, 'hasAllPermissions'])->name('permissions.check.all');
 
+    // Employee routes
+    Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
+    Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');
+    Route::get('/employees/data', [EmployeeController::class, 'getData'])->name('employees.data');
+    Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
+    Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
+    Route::get('/employees/upload', [EmployeeUploadController::class, 'index'])->name('employees.upload');
+    Route::post('/employees/upload/process', [EmployeeUploadController::class, 'processUpload'])->name('employees.upload.process');
+    Route::post('/employees/upload/confirm', [EmployeeUploadController::class, 'confirmStore'])->name('employees.upload.confirm');
+    Route::get('/employees/history', [EmployeeHistoryController::class, 'index'])->name('employees.history');
+    Route::get('/employees/calendar', [EmployeeCalendarController::class, 'index'])->name('employees.calendar');
+    Route::get('/employees/calendar/events', [EmployeeCalendarController::class, 'getEvents'])->name('employees.calendar.events');
+    Route::post('/employees/calendar/events', [EmployeeCalendarController::class, 'store'])->name('employees.calendar.events.store');
+    Route::put('/employees/calendar/events/{id}', [EmployeeCalendarController::class, 'update'])->name('employees.calendar.events.update');
+    Route::delete('/employees/calendar/events/{id}', [EmployeeCalendarController::class, 'destroy'])->name('employees.calendar.events.destroy');
+    Route::get('/employees/{id}', [EmployeeController::class, 'view'])->name('employees.view');
+    Route::get('/employees/{id}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
+    Route::put('/employees/{id}', [EmployeeController::class, 'update'])->name('employees.update');
+    Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+
+    // Reports routes
+    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
 
     // User routes
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -44,6 +68,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
     Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
+
+    // Administration routes
+    Route::get('/administration', [AdministrationController::class, 'index'])->name('administration.index');
 
     // Vacancy routes
     Route::get('/vacancies', [VacanciesController::class, 'index'])->name('vacancies.index');
@@ -111,23 +138,4 @@ Route::middleware(['auth'])->group(function () {
     // Training routes
     Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
 
-    // Employee routes
-    Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
-    Route::get('/employees/board', [EmployeeController::class, 'board'])->name('employees.board');
-    Route::get('/employees/data', [EmployeeController::class, 'getData'])->name('employees.data');
-    Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
-    Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
-    Route::get('/employees/upload', [EmployeeUploadController::class, 'index'])->name('employees.upload');
-    Route::post('/employees/upload/process', [EmployeeUploadController::class, 'processUpload'])->name('employees.upload.process');
-    Route::post('/employees/upload/confirm', [EmployeeUploadController::class, 'confirmStore'])->name('employees.upload.confirm');
-    Route::get('/employees/history', [EmployeeHistoryController::class, 'index'])->name('employees.history');
-    Route::get('/employees/calendar', [EmployeeCalendarController::class, 'index'])->name('employees.calendar');
-    Route::get('/employees/calendar/events', [EmployeeCalendarController::class, 'getEvents'])->name('employees.calendar.events');
-    Route::post('/employees/calendar/events', [EmployeeCalendarController::class, 'store'])->name('employees.calendar.events.store');
-    Route::put('/employees/calendar/events/{id}', [EmployeeCalendarController::class, 'update'])->name('employees.calendar.events.update');
-    Route::delete('/employees/calendar/events/{id}', [EmployeeCalendarController::class, 'destroy'])->name('employees.calendar.events.destroy');
-    Route::get('/employees/{id}', [EmployeeController::class, 'view'])->name('employees.view');
-    Route::get('/employees/{id}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
-    Route::put('/employees/{id}', [EmployeeController::class, 'update'])->name('employees.update');
-    Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 });

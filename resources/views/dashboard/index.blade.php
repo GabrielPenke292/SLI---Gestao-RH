@@ -48,7 +48,7 @@
 
                         @if($canViewReports)
                         <div class="col-md-3 mb-3 p-3">
-                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                            <a href="{{ route('reports.index') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-chart-bar me-2"></i>Relatórios
                             </a>
                         </div>
@@ -64,7 +64,7 @@
 
                         @if($canManageUsers)
                         <div class="col-md-3 mb-3 p-3">
-                            <a href="#" class="btn btn-outline-primary w-100 p-5">
+                            <a href="{{ route('administration.index') }}" class="btn btn-outline-primary w-100 p-5">
                                 <i class="fas fa-crown me-2"></i>Administração
                             </a>
                         </div>
