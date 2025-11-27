@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class TrainingContent extends Model
 {
@@ -99,5 +100,20 @@ class TrainingContent extends Model
             return 'https://www.youtube.com/embed/' . $this->youtube_video_id;
         }
         return null;
+    }
+
+    /**
+     * Relacionamento: Um conteúdo pode estar em muitos tópicos
+     */
+    public function topics(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TrainingTopic::class,
+            'training_topic_contents',
+            'training_content_id',
+            'training_topic_id',
+            'training_content_id',
+            'training_topic_id'
+        )->withPivot('order');
     }
 }

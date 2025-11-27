@@ -187,4 +187,16 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/training/contents/{id}', [TrainingController::class, 'update'])->name('training.contents.update');
     Route::delete('/training/contents/{id}', [TrainingController::class, 'delete'])->name('training.contents.delete');
     Route::get('/training/contents/{id}/download', [TrainingController::class, 'downloadFile'])->name('training.contents.download');
+    Route::get('/training/trainings', [TrainingController::class, 'trainings'])->name('training.trainings');
+    Route::get('/training/classes/data', [TrainingController::class, 'getClassesData'])->name('training.classes.data');
+    Route::post('/training/classes', [TrainingController::class, 'storeClass'])->name('training.classes.store');
+    Route::get('/training/classes/{id}', [TrainingController::class, 'getClass'])->name('training.classes.get');
+    Route::put('/training/classes/{id}', [TrainingController::class, 'updateClass'])->name('training.classes.update');
+    Route::delete('/training/classes/{id}', [TrainingController::class, 'deleteClass'])->name('training.classes.delete');
+    Route::post('/training/topics', [TrainingController::class, 'storeTopic'])->name('training.topics.store');
+    Route::put('/training/topics/{id}', [TrainingController::class, 'updateTopic'])->name('training.topics.update');
+    Route::delete('/training/topics/{id}', [TrainingController::class, 'deleteTopic'])->name('training.topics.delete');
+    Route::post('/training/topics/contents', [TrainingController::class, 'addContentToTopic'])->name('training.topics.contents.add');
+    Route::delete('/training/topics/{topicId}/contents/{contentId}', [TrainingController::class, 'removeContentFromTopic'])->name('training.topics.contents.remove');
+    Route::get('/training/contents/available', [TrainingController::class, 'getAvailableContents'])->name('training.contents.available');
 });

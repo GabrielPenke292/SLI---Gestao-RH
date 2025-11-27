@@ -7,6 +7,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Models\TrainingContent;
+use App\Models\TrainingClass;
+use App\Models\TrainingTopic;
 
 class TrainingController extends Controller
 {
@@ -327,5 +329,420 @@ class TrainingController extends Controller
         } else {
             return $bytes . ' bytes';
         }
+    }
+
+    public function trainings(){
+        return view('training.trainings');
+    }
+
+    /**
+     * Buscar todas as turmas
+     */
+    public function getClassesData(Request $request): JsonResponse
+    {
+        $search = $request->input('search', '');
+
+        $query = TrainingClass::whereNull('deleted_at');
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                  ->orWhere('description', 'like', '%' . $search . '%')
+                  ->orWhere('instructor', 'like', '%' . $search . '%');
+            });
+        }
+
+        $classes = $query->withCount('topics')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($class) {
+                $statusLabels = [
+                    'planejado' => 'Planejado',
+                    'em_andamento' => 'Em Andamento',
+                    'concluido' => 'Concluído',
+                    'cancelado' => 'Cancelado'
+                ];
+
+                $statusColors = [
+                    'planejado' => 'secondary',
+                    'em_andamento' => 'primary',
+                    'concluido' => 'success',
+                    'cancelado' => 'danger'
+                ];
+
+                return [
+                    'training_class_id' => $class->training_class_id,
+                    'title' => $class->title,
+                    'description' => $class->description,
+                    'start_date' => $class->start_date?->format('d/m/Y') ?? '-',
+                    'end_date' => $class->end_date?->format('d/m/Y') ?? '-',
+                    'status' => $class->status,
+                    'status_label' => $statusLabels[$class->status] ?? $class->status,
+                    'status_color' => $statusColors[$class->status] ?? 'secondary',
+                    'max_participants' => $class->max_participants,
+                    'instructor' => $class->instructor,
+                    'topics_count' => $class->topics_count ?? 0,
+                    'created_at' => $class->created_at?->format('d/m/Y H:i') ?? '-',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $classes
+        ]);
+    }
+
+    /**
+     * Salvar nova turma
+     */
+    public function storeClass(Request $request): JsonResponse
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'status' => 'required|in:planejado,em_andamento,concluido,cancelado',
+            'max_participants' => 'nullable|integer|min:1',
+            'instructor' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        try {
+            $user = Auth::user();
+
+            $class = TrainingClass::create([
+                'title' => $request->input('title'),
+                'description' => $request->input('description'),
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'status' => $request->input('status'),
+                'max_participants' => $request->input('max_participants'),
+                'instructor' => $request->input('instructor'),
+                'notes' => $request->input('notes'),
+                'created_at' => now(),
+                'created_by' => $user->user_name ?? 'system',
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Turma criada com sucesso!',
+                'data' => $class
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao criar turma: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Buscar uma turma específica com tópicos
+     */
+    public function getClass($id): JsonResponse
+    {
+        $class = TrainingClass::whereNull('deleted_at')
+            ->with(['topics.contents' => function($query) {
+                $query->whereNull('training_contents.deleted_at');
+            }])
+            ->findOrFail($id);
+
+        $topics = $class->topics->map(function($topic) {
+            return [
+                'training_topic_id' => $topic->training_topic_id,
+                'title' => $topic->title,
+                'description' => $topic->description,
+                'order' => $topic->order,
+                'duration_minutes' => $topic->duration_minutes,
+                'contents' => $topic->contents->map(function($content) {
+                    return [
+                        'training_content_id' => $content->training_content_id,
+                        'title' => $content->title,
+                        'content_type' => $content->content_type,
+                        'order' => $content->pivot->order ?? 0,
+                    ];
+                })->sortBy('order')->values(),
+            ];
+        })->sortBy('order')->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'training_class_id' => $class->training_class_id,
+                'title' => $class->title,
+                'description' => $class->description,
+                'start_date' => $class->start_date?->format('Y-m-d'),
+                'end_date' => $class->end_date?->format('Y-m-d'),
+                'status' => $class->status,
+                'max_participants' => $class->max_participants,
+                'instructor' => $class->instructor,
+                'notes' => $class->notes,
+                'topics' => $topics,
+            ]
+        ]);
+    }
+
+    /**
+     * Atualizar turma
+     */
+    public function updateClass(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'status' => 'required|in:planejado,em_andamento,concluido,cancelado',
+            'max_participants' => 'nullable|integer|min:1',
+            'instructor' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        try {
+            $user = Auth::user();
+            $class = TrainingClass::whereNull('deleted_at')->findOrFail($id);
+
+            $class->update([
+                'title' => $request->input('title'),
+                'description' => $request->input('description'),
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'status' => $request->input('status'),
+                'max_participants' => $request->input('max_participants'),
+                'instructor' => $request->input('instructor'),
+                'notes' => $request->input('notes'),
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Turma atualizada com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao atualizar turma: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Excluir turma
+     */
+    public function deleteClass($id): JsonResponse
+    {
+        try {
+            $class = TrainingClass::whereNull('deleted_at')->findOrFail($id);
+            $class->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Turma excluída com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao excluir turma: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Salvar tópico
+     */
+    public function storeTopic(Request $request): JsonResponse
+    {
+        $request->validate([
+            'training_class_id' => 'required|exists:training_classes,training_class_id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'order' => 'nullable|integer|min:0',
+            'duration_minutes' => 'nullable|integer|min:0',
+        ]);
+
+        try {
+            $user = Auth::user();
+
+            $topic = TrainingTopic::create([
+                'training_class_id' => $request->input('training_class_id'),
+                'title' => $request->input('title'),
+                'description' => $request->input('description'),
+                'order' => $request->input('order', 0),
+                'duration_minutes' => $request->input('duration_minutes'),
+                'created_at' => now(),
+                'created_by' => $user->user_name ?? 'system',
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tópico criado com sucesso!',
+                'data' => $topic
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao criar tópico: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Atualizar tópico
+     */
+    public function updateTopic(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'order' => 'nullable|integer|min:0',
+            'duration_minutes' => 'nullable|integer|min:0',
+        ]);
+
+        try {
+            $user = Auth::user();
+            $topic = TrainingTopic::whereNull('deleted_at')->findOrFail($id);
+
+            $topic->update([
+                'title' => $request->input('title'),
+                'description' => $request->input('description'),
+                'order' => $request->input('order', $topic->order),
+                'duration_minutes' => $request->input('duration_minutes'),
+                'updated_at' => now(),
+                'updated_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tópico atualizado com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao atualizar tópico: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Excluir tópico
+     */
+    public function deleteTopic($id): JsonResponse
+    {
+        try {
+            $topic = TrainingTopic::whereNull('deleted_at')->findOrFail($id);
+            $topic->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tópico excluído com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao excluir tópico: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Adicionar conteúdo a um tópico
+     */
+    public function addContentToTopic(Request $request): JsonResponse
+    {
+        $request->validate([
+            'training_topic_id' => 'required|exists:training_topics,training_topic_id',
+            'training_content_id' => 'required|exists:training_contents,training_content_id',
+            'order' => 'nullable|integer|min:0',
+        ]);
+
+        try {
+            $user = Auth::user();
+            $topic = TrainingTopic::whereNull('deleted_at')->findOrFail($request->input('training_topic_id'));
+            $content = TrainingContent::whereNull('deleted_at')->findOrFail($request->input('training_content_id'));
+
+            // Verificar se já existe
+            if ($topic->contents()->where('training_content_id', $content->training_content_id)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este conteúdo já está vinculado a este tópico.'
+                ], 422);
+            }
+
+            $topic->contents()->attach($content->training_content_id, [
+                'order' => $request->input('order', 0),
+                'created_at' => now(),
+                'created_by' => $user->user_name ?? 'system',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Conteúdo adicionado ao tópico com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao adicionar conteúdo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remover conteúdo de um tópico
+     */
+    public function removeContentFromTopic(Request $request, $topicId, $contentId): JsonResponse
+    {
+        try {
+            $topic = TrainingTopic::whereNull('deleted_at')->findOrFail($topicId);
+            $topic->contents()->detach($contentId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Conteúdo removido do tópico com sucesso!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao remover conteúdo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Buscar conteúdos disponíveis (para seleção em tópicos)
+     */
+    public function getAvailableContents(): JsonResponse
+    {
+        $contents = TrainingContent::whereNull('deleted_at')
+            ->where('is_active', true)
+            ->orderBy('title')
+            ->get()
+            ->map(function($content) {
+                $typeLabels = [
+                    'pdf' => 'PDF',
+                    'excel' => 'Excel',
+                    'powerpoint' => 'PowerPoint',
+                    'video_file' => 'Vídeo',
+                    'youtube_link' => 'YouTube'
+                ];
+
+                return [
+                    'training_content_id' => $content->training_content_id,
+                    'title' => $content->title,
+                    'content_type' => $content->content_type,
+                    'content_type_label' => $typeLabels[$content->content_type] ?? $content->content_type,
+                    'category' => $content->category,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $contents
+        ]);
     }
 }
